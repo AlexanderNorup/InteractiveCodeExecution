@@ -4,7 +4,7 @@ This project contains code relating to my ISA (Individual Student Activity) *"In
 
 The project runs from February 1st to June 30th.
 
-Student: **Alexander Nørup**, alnoe20@student.sdu.dk
+Student: **Alexander NÃ¸rup**, alnoe20@student.sdu.dk
 
 Supervisors:
 - **Aisha Umair**: aiu@mmmi.sdu.dk
@@ -20,7 +20,7 @@ Good luck :)
 
 (Probably already outdated. This is a PoC, so it changes all the time)
 
-![Demo video](https://share.alexandernorup.com/p/isa-first-edition-poc.mp4)
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
 
 The video shows running dotnet code and taking: `9724.30ms`. 
 
