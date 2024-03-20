@@ -12,7 +12,7 @@ namespace InteractiveCodeExecution.Hubs
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
         private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
         {
-            Timeout = TimeSpan.FromSeconds(15),
+            Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
             MaxVCpus = .5
         };
@@ -29,6 +29,17 @@ namespace InteractiveCodeExecution.Hubs
 
             yield return new("Starting execution!", "debug");
 
+            var timeoutCancellationToken = new CancellationTokenSource();
+            if (m_tempConfig.Timeout > TimeSpan.Zero)
+            {
+                timeoutCancellationToken.CancelAfter(m_tempConfig.Timeout.Value);
+            }
+
+            var timeoutCt = timeoutCancellationToken.Token;
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCt, cancellationToken);
+
+            var linkedCancellationToken = linkedCts.Token;
+
             const int BufferSize = 4096;
             var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
             bool hasBeenBuilt = !handle.ShouldBuild;
@@ -36,9 +47,20 @@ namespace InteractiveCodeExecution.Hubs
             {
                 IExecutorStream streamToRun = hasBeenBuilt ? await handle.ExecutorStream() : await handle.BuildStream();
 
-                while (!cancellationToken.IsCancellationRequested)
+                while (!linkedCancellationToken.IsCancellationRequested)
                 {
-                    var result = await streamToRun.ReadOutputAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                    ExecutorStreamReadResult result;
+                    try
+                    {
+                        result = await streamToRun.ReadOutputAsync(buffer, 0, buffer.Length, linkedCancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // The reason we have a try-catch within a try-finally block is that 
+                        // you cannot use "yield return" statements in a try-block with catch-statements. 
+                        // Therefore we needs this janky workaround
+                        break;
+                    }
                     if (result.EndOfStream)
                     {
                         var executionResult = await streamToRun.GetExecutionResultAsync();
@@ -64,6 +86,10 @@ namespace InteractiveCodeExecution.Hubs
             {
                 ArrayPool<byte>.Shared.Return(buffer);
                 await _executor.ReleaseHandle(handle).ConfigureAwait(false);
+            }
+            if (timeoutCt.IsCancellationRequested)
+            {
+                yield return new($"Execution was aborted because it went on for too long. Maximum allowed time is {m_tempConfig.Timeout}", "error");
             }
         }
 
