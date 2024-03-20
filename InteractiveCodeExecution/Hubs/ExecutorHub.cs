@@ -2,17 +2,19 @@
 using Microsoft.AspNetCore.SignalR;
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace InteractiveCodeExecution.Hubs
 {
     public class ExecutorHub : Hub
     {
+        private static IExecutorStream? s_tempSharedHandle;
         private IExecutorController _executor;
 
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
         private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
         {
-            Timeout = TimeSpan.FromMinutes(1),
+            //Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
             //MaxVCpus = .5,
             MaxContainerSizeInBytes = 1024 * 1024 * 1,
@@ -24,6 +26,20 @@ namespace InteractiveCodeExecution.Hubs
             _executor = executor;
         }
 
+        public async Task WriteToStdIn(string payload)
+        {
+            if (s_tempSharedHandle is null)
+            {
+                await Clients.Caller.SendAsync("LogMessage", "No handle is active");
+                return;
+            }
+
+            byte[] buffer = Encoding.UTF8.GetBytes(payload + Environment.NewLine);
+
+            await s_tempSharedHandle.WriteInputAsync(buffer, 0, buffer.Length, Context.ConnectionAborted);
+            await Clients.Caller.SendAsync("LogMessage", "I tried my best! Did it work?");
+        }
+
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new("Starting container...", "debug");
@@ -31,7 +47,7 @@ namespace InteractiveCodeExecution.Hubs
             ExecutorPayloadTooBigException? payloadTooBigException = null;
             try
             {
-                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, Context.ConnectionAborted);
+                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, cancellationToken);
             }
             catch (ExecutorPayloadTooBigException ex)
             {
@@ -64,7 +80,7 @@ namespace InteractiveCodeExecution.Hubs
             try
             {
                 IExecutorStream streamToRun = hasBeenBuilt ? await handle.ExecutorStream() : await handle.BuildStream();
-
+                s_tempSharedHandle = streamToRun;
                 while (!linkedCancellationToken.IsCancellationRequested)
                 {
                     ExecutorStreamReadResult result;
@@ -92,6 +108,7 @@ namespace InteractiveCodeExecution.Hubs
 
                         hasBeenBuilt = true;
                         streamToRun = await handle.ExecutorStream();
+                        s_tempSharedHandle = streamToRun;
                         yield return new("Successfully built!", "debug");
                         continue;
                     }

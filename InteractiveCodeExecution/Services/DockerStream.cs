@@ -27,6 +27,12 @@ namespace InteractiveCodeExecution.Services
             };
         }
 
+        public async Task WriteInputAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+        {
+            await Stream.WriteAsync(buffer, offset, buffer.Length, cancellationToken).ConfigureAwait(false);
+            Stream.CloseWrite();
+        }
+
         private static ExecutorStreamType AsExecutorStreamType(MultiplexedStream.TargetStream targetStream) => targetStream switch
         {
             MultiplexedStream.TargetStream.StandardOut => ExecutorStreamType.StdOut,

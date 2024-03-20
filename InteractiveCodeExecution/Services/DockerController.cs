@@ -93,6 +93,8 @@ namespace InteractiveCodeExecution.Services
                     Cmd = payload.ExecCmd.Split(' '),
                 }, cancellationToken).ConfigureAwait(false);
 
+                m_logger.LogInformation("Exec container id: " + execContainer.ID);
+
                 var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
 
                 var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);

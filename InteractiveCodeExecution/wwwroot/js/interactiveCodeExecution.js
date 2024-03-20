@@ -10,6 +10,7 @@ const buildInput = document.getElementById("buildInput");
 const runBtn = document.getElementById("runBtn");
 const clearLogsBtn = document.getElementById("clearLogsBtn");
 const abortStreamingBtn = document.getElementById("abortStreamingBtn");
+const sendStdInBtn = document.getElementById("sendStdInBtn");
 
 const logList = document.getElementById("log");
 
@@ -45,6 +46,12 @@ function abortStreaming() {
     abortStreamingBtn.disabled = true;
 }
 abortStreamingBtn.addEventListener("click", abortStreaming);
+
+sendStdInBtn.addEventListener("click", function (event) {
+    connection.invoke("WriteToStdIn", "Hello World!").catch(function (err) {
+        logMessage(err, "error");
+    });
+});
 
 connection.on("LogMessage", function (message) {
     logMessage(message);
