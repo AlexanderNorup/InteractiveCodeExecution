@@ -70,7 +70,7 @@ namespace InteractiveCodeExecution.Services
                     Cmd = payload.BuildCmd.Split(' '),
                 }, cancellationToken).ConfigureAwait(false);
 
-                var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: true, cancellationToken).ConfigureAwait(false);
+                var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
 
                 var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
                 return new DockerStream(buildStream, ExecutionResult.ExecutionStage.Build, resultAction);
@@ -93,7 +93,7 @@ namespace InteractiveCodeExecution.Services
                     Cmd = payload.ExecCmd.Split(' '),
                 }, cancellationToken).ConfigureAwait(false);
 
-                var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: true, cancellationToken).ConfigureAwait(false);
+                var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
 
                 var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
                 return new DockerStream(execStream, ExecutionResult.ExecutionStage.Run, resultAction);
@@ -218,7 +218,7 @@ namespace InteractiveCodeExecution.Services
                         DataStream = dataStream
                     };
 
-                    await tarWriter.WriteEntryAsync(tarEntry, cancellationToken);
+                    await tarWriter.WriteEntryAsync(tarEntry, cancellationToken).ConfigureAwait(false);
                 }
 
                 tarBall.Seek(0, SeekOrigin.Begin);
@@ -226,7 +226,7 @@ namespace InteractiveCodeExecution.Services
                 {
                     AllowOverwriteDirWithFile = false,
                     Path = container.ContainerPath,
-                }, tarBall, cancellationToken);
+                }, tarBall, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -236,7 +236,7 @@ namespace InteractiveCodeExecution.Services
             const string BackingSystemKey = "Backing Filesystem";
             const string RequiredBackingSystem = "xfs";
 
-            var info = await m_client.System.GetSystemInfoAsync(cancellationToken);
+            var info = await m_client.System.GetSystemInfoAsync(cancellationToken).ConfigureAwait(false);
             var backingDriver = info.DriverStatus.Where(x => x.Length > 0 && x[0].Equals(BackingSystemKey, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
             if (info.Driver.Equals(RequiredDriver, StringComparison.OrdinalIgnoreCase)
