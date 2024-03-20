@@ -8,6 +8,15 @@ namespace InteractiveCodeExecution.Hubs
     public class ExecutorHub : Hub
     {
         private IExecutorController _executor;
+
+        // This variable is temporary. Is should be tied with Assignments when they're implemented.
+        private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
+        {
+            Timeout = TimeSpan.FromSeconds(15),
+            MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
+            MaxVCpus = .5
+        };
+
         public ExecutorHub(IExecutorController executor)
         {
             _executor = executor;
@@ -16,7 +25,7 @@ namespace InteractiveCodeExecution.Hubs
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new("Starting container...", "debug");
-            var handle = await _executor.GetExecutorHandle(payload, Context.ConnectionAborted);
+            var handle = await _executor.GetExecutorHandle(payload, m_tempConfig, Context.ConnectionAborted);
 
             yield return new("Starting execution!", "debug");
 

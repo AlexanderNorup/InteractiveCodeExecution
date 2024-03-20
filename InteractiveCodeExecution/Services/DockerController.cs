@@ -18,9 +18,9 @@ namespace InteractiveCodeExecution.Services
             m_logger = logger;
         }
 
-        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, CancellationToken cancellationToken = default)
+        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, CancellationToken cancellationToken = default)
         {
-            var container = await GetAvailableContainer(payload, cancellationToken);
+            var container = await GetAvailableContainer(payload, config, cancellationToken);
             Directory.CreateDirectory(container.MountedPath);
 
             m_logger.LogDebug("Container {Container} ready for loading files!", container.Id);
@@ -96,31 +96,32 @@ namespace InteractiveCodeExecution.Services
                 }).ConfigureAwait(false);
                 Directory.Delete(payload.Container.MountedPath, true);
             }
-            catch (DockerContainerNotFoundException)
+            catch (Exception ex) when (ex is DockerContainerNotFoundException or DirectoryNotFoundException)
             {
                 // Don't care
             }
         }
 
-        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, CancellationToken cancellationToken = default)
+        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, ExecutorConfig config, CancellationToken cancellationToken = default)
         {
             // TODO: Either return a cached container, or rename the method
             _ = payload.PayloadType ?? throw new ArgumentNullException(nameof(payload.PayloadType));
 
-            if (!m_config.PayloadImageTypeMapping.TryGetValue(payload.PayloadType, out string image))
+            if (!m_config.PayloadImageTypeMapping.TryGetValue(payload.PayloadType, out var image))
             {
                 throw new ArgumentException($"Unknown {payload.PayloadType} type!");
             }
 
             const string ContainerPayloadPath = "/payload";
             var mountedPath = Path.Combine(VolumePath, Guid.NewGuid().ToString());
-            var container = await m_client.Containers.CreateContainerAsync(new CreateContainerParameters()
+
+            var startParams = new CreateContainerParameters()
             {
                 Image = image,
                 Labels = new Dictionary<string, string>() {
-                {"createdBy", "ScaleableTeaching" },
-                {"createdFor", "alnoe20@student.sdu.dk" }
-            },
+                    {"createdBy", "ScaleableTeaching" },
+                    {"createdFor", "alnoe20@student.sdu.dk" }
+                },
                 AttachStderr = true,
                 AttachStdin = true,
                 AttachStdout = true,
@@ -132,7 +133,21 @@ namespace InteractiveCodeExecution.Services
                 },
                 Env = ["DOTNET_LOGGING_CONSOLE_DISABLECOLORS=true"],
                 WorkingDir = ContainerPayloadPath
-            }, cancellationToken).ConfigureAwait(false); ;
+            };
+
+            if (config.MaxVCpus > 0)
+            {
+                const long OneVCpuInNanoCpus = 1_000_000_000;
+                long nanoCpus = (long)(config.MaxVCpus.Value * OneVCpuInNanoCpus);
+                startParams.HostConfig.NanoCPUs = nanoCpus;
+            }
+
+            if (config.MaxMemoryBytes > 0)
+            {
+                startParams.HostConfig.Memory = config.MaxMemoryBytes.Value;
+            }
+
+            var container = await m_client.Containers.CreateContainerAsync(startParams, cancellationToken).ConfigureAwait(false); ;
 
             // Container created
             var started = await m_client.Containers.StartContainerAsync(container.ID, new(), cancellationToken).ConfigureAwait(false); ;
