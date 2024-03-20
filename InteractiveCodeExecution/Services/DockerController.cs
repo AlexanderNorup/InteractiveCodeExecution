@@ -2,12 +2,14 @@
 using Docker.DotNet.Models;
 using InteractiveCodeExecution.ExecutorEntities;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using System.Formats.Tar;
+using System.Text;
 
 namespace InteractiveCodeExecution.Services
 {
     public class DockerController : IExecutorController
     {
-        private readonly string VolumePath = Path.Combine(AppContext.BaseDirectory, "payloads");
         private readonly DockerConfiguration m_config;
         private readonly ILogger<DockerController> m_logger;
         private DockerClient m_client;
@@ -21,17 +23,37 @@ namespace InteractiveCodeExecution.Services
         public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, CancellationToken cancellationToken = default)
         {
             var container = await GetAvailableContainer(payload, config, cancellationToken);
-            Directory.CreateDirectory(container.MountedPath);
 
             m_logger.LogDebug("Container {Container} ready for loading files!", container.Id);
 
             // Inject code into the container
-            foreach (var file in payload.Files)
+            var st = Stopwatch.StartNew();
+            using (var tarBall = new MemoryStream())
             {
-                var filepath = Path.Combine(container.MountedPath, file.Filepath); // Security TODO: Ensure there's no path traversal here.
-                await File.WriteAllTextAsync(filepath, file.Content, cancellationToken);
+                var tarWriter = new TarWriter(tarBall);
+
+                foreach (var file in payload.Files)
+                {
+                    using var dataStream = new MemoryStream(GetFileContentAsByteArray(file));
+
+                    var tarEntry = new GnuTarEntry(TarEntryType.RegularFile, file.Filepath)
+                    {
+                        DataStream = dataStream
+                    };
+
+                    await tarWriter.WriteEntryAsync(tarEntry, cancellationToken);
+                }
+
+                tarBall.Seek(0, SeekOrigin.Begin);
+                await m_client.Containers.ExtractArchiveToContainerAsync(container.Id, new()
+                {
+                    AllowOverwriteDirWithFile = false,
+                    Path = container.ContainerPath,
+                }, tarBall, cancellationToken);
             }
-            m_logger.LogDebug("Container {Container} primed with {FileCount} files!", container.Id, payload.Files.Count);
+            st.Stop();
+
+            m_logger.LogDebug("Container {Container} primed with {FileCount} files in {Time}!", container.Id, payload.Files.Count, st.Elapsed);
 
             var handle = new ExecutorHandle();
 
@@ -39,26 +61,26 @@ namespace InteractiveCodeExecution.Services
             handle.Container = container;
             handle.ShouldBuild = !string.IsNullOrWhiteSpace(payload.BuildCmd);
             handle.BuildStream = async () =>
-            {
-                m_logger.LogDebug("Building payload for container {Container} with command {BuildCommand}!", container.Id, payload.BuildCmd);
-                if (string.IsNullOrWhiteSpace(payload.BuildCmd))
                 {
-                    throw new InvalidOperationException("This payload does not need to be built");
-                }
+                    m_logger.LogDebug("Building payload for container {Container} with command {BuildCommand}!", container.Id, payload.BuildCmd);
+                    if (string.IsNullOrWhiteSpace(payload.BuildCmd))
+                    {
+                        throw new InvalidOperationException("This payload does not need to be built");
+                    }
 
-                var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    Tty = false,
-                    Cmd = payload.BuildCmd.Split(' '),
-                }, cancellationToken).ConfigureAwait(false);
+                    var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
+                    {
+                        AttachStderr = true,
+                        AttachStdout = true,
+                        Tty = false,
+                        Cmd = payload.BuildCmd.Split(' '),
+                    }, cancellationToken).ConfigureAwait(false);
 
-                var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: true, cancellationToken).ConfigureAwait(false);
+                    var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: true, cancellationToken).ConfigureAwait(false);
 
-                var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                return new DockerStream(buildStream, ExecutionResult.ExecutionStage.Build, resultAction);
-            };
+                    var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                    return new DockerStream(buildStream, ExecutionResult.ExecutionStage.Build, resultAction);
+                };
 
             handle.ExecutorStream = async () =>
             {
@@ -94,9 +116,8 @@ namespace InteractiveCodeExecution.Services
                 {
                     Force = true,
                 }).ConfigureAwait(false);
-                Directory.Delete(payload.Container.MountedPath, true);
             }
-            catch (Exception ex) when (ex is DockerContainerNotFoundException or DirectoryNotFoundException)
+            catch (DockerContainerNotFoundException)
             {
                 // Don't care
             }
@@ -113,7 +134,6 @@ namespace InteractiveCodeExecution.Services
             }
 
             const string ContainerPayloadPath = "/payload";
-            var mountedPath = Path.Combine(VolumePath, Guid.NewGuid().ToString());
 
             var startParams = new CreateContainerParameters()
             {
@@ -129,7 +149,7 @@ namespace InteractiveCodeExecution.Services
                 Entrypoint = ["/bin/bash"], // Keeps the container alive, regardless of the command set in the Dockerfile
                 HostConfig = new()
                 {
-                    Binds = [$"{mountedPath}:/{ContainerPayloadPath}"],
+                    //Binds = [$"{mountedPath}:/{ContainerPayloadPath}"],
                 },
                 Env = ["DOTNET_LOGGING_CONSOLE_DISABLECOLORS=true"],
                 WorkingDir = ContainerPayloadPath
@@ -160,8 +180,14 @@ namespace InteractiveCodeExecution.Services
             return new ExecutorContainer()
             {
                 Id = container.ID,
-                MountedPath = mountedPath,
+                ContainerPath = ContainerPayloadPath,
             };
         }
+
+        private static byte[] GetFileContentAsByteArray(ExecutorFile file) => file.ContentType switch
+        {
+            ExecutorFileType.Base64BinaryFile => Convert.FromBase64String(file.Content),
+            _ => Encoding.UTF8.GetBytes(file.Content),
+        };
     }
 }

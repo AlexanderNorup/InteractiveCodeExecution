@@ -14,7 +14,7 @@ namespace InteractiveCodeExecution.Hubs
         {
             Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
-            MaxVCpus = .5
+            //MaxVCpus = .5
         };
 
         public ExecutorHub(IExecutorController executor)

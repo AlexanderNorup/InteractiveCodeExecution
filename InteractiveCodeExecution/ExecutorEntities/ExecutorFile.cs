@@ -4,5 +4,6 @@
     {
         public string Filepath { get; set; }
         public string Content { get; set; }
+        public ExecutorFileType ContentType { get; set; }
     }
 }

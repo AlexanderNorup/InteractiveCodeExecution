@@ -44,15 +44,18 @@ runBtn.addEventListener("click", function (event) {
         Files: [
             {
                 Filepath: "Program.cs",
-                Content: codeInput.value
+                Content: codeInput.value,
+                type: "Utf8TextFile"
             },
             {
                 Filepath: "Project.csproj",
-                Content: codeInput2.value
+                Content: codeInput2.value,
+                type: "Utf8TextFile"
             }
         ]
     };
     const startTime = performance.now();
+    runBtn.disabled = true;
 
     connection.stream("ExecutePayloadByStream", payload)
         .subscribe({
@@ -71,7 +74,6 @@ runBtn.addEventListener("click", function (event) {
                 runBtn.disabled = false;
             },
         });
-    runBtn.disabled = true;
     event.preventDefault();
 });
 
