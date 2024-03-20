@@ -20,5 +20,19 @@
         /// Set to <see langword="null"/> in order to disable max VCPUs' (not recommended).
         /// </summary>
         public double? MaxVCpus { get; set; }
+
+        /// <summary>
+        /// Sets a maximum container size INCLUDING the container itself.<br/>
+        /// Set to <see langword="null"/> in order to disable any storage limit (not recommended).<br/>
+        /// <b>Important:</b> Requires <c>xfs</c> file-system with <c>pquota</c> enabled.<br/>
+        /// Read more here: <seealso href="https://docs.docker.com/reference/cli/docker/container/run/#storage-opt"/>
+        /// </summary>
+        public long? MaxContainerSizeInBytes { get; set; }
+
+        /// <summary>
+        /// Sets a maximum payload size.<br/>
+        /// Set to <see langword="null"/> in order to disable any payload size storage limit (not recommended if you set <see cref="MaxContainerSizeInBytes"/> to <see langword="null"/>).
+        /// </summary>
+        public long? MaxPayloadSizeInBytes { get; set; }
     }
 }

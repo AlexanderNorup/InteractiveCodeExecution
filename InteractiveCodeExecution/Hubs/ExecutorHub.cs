@@ -14,7 +14,9 @@ namespace InteractiveCodeExecution.Hubs
         {
             Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
-            //MaxVCpus = .5
+            //MaxVCpus = .5,
+            MaxContainerSizeInBytes = 1024 * 1024 * 1,
+            MaxPayloadSizeInBytes = 2000,
         };
 
         public ExecutorHub(IExecutorController executor)
@@ -25,7 +27,23 @@ namespace InteractiveCodeExecution.Hubs
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new("Starting container...", "debug");
-            var handle = await _executor.GetExecutorHandle(payload, m_tempConfig, Context.ConnectionAborted);
+            ExecutorHandle? handle = null;
+            ExecutorPayloadTooBigException? payloadTooBigException = null;
+            try
+            {
+                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, Context.ConnectionAborted);
+            }
+            catch (ExecutorPayloadTooBigException ex)
+            {
+                // Using this jank because you're not allowed to 'yield return' in catch blocks. 
+                payloadTooBigException = ex;
+            }
+
+            if (handle is null)
+            {
+                yield return new(payloadTooBigException?.Message ?? "Failed to start a container", "error");
+                yield break;
+            }
 
             yield return new("Starting execution!", "debug");
 
