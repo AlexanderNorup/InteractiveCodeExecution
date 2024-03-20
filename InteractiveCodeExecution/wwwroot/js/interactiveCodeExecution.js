@@ -9,8 +9,11 @@ const execInput = document.getElementById("execInput");
 const buildInput = document.getElementById("buildInput");
 const runBtn = document.getElementById("runBtn");
 const clearLogsBtn = document.getElementById("clearLogsBtn");
+const abortStreamingBtn = document.getElementById("abortStreamingBtn");
 
 const logList = document.getElementById("log");
+
+let currentStreaming;
 
 function logMessage(message, severity = "information") {
     let timePill = document.createElement("span");
@@ -31,6 +34,17 @@ function logMessage(message, severity = "information") {
         behavior: "smooth",
     });
 }
+
+function abortStreaming() {
+    if (currentStreaming != undefined) {
+        currentStreaming.dispose();
+        currentStreaming = undefined;
+        logMessage("Execution aborted by user", "error");
+    }
+    runBtn.disabled = false;
+    abortStreamingBtn.disabled = true;
+}
+abortStreamingBtn.addEventListener("click", abortStreaming);
 
 connection.on("LogMessage", function (message) {
     logMessage(message);
@@ -55,9 +69,12 @@ runBtn.addEventListener("click", function (event) {
         ]
     };
     const startTime = performance.now();
-    runBtn.disabled = true;
+    abortStreaming();
 
-    connection.stream("ExecutePayloadByStream", payload)
+    runBtn.disabled = true;
+    abortStreamingBtn.disabled = false;
+
+    currentStreaming = connection.stream("ExecutePayloadByStream", payload)
         .subscribe({
             next: (item) => {
                 logMessage(item.message, item.severity)
@@ -65,13 +82,17 @@ runBtn.addEventListener("click", function (event) {
             complete: () => {
                 logMessage("Stream completed from JavaScript-side!", "debug");
                 runBtn.disabled = false;
+                abortStreamingBtn.disabled = true;
                 const endTime = performance.now();
                 logMessage(`Total runtime: ${endTime - startTime} ms`, "debug");
+                currentStreaming = undefined;
             },
             error: (err) => {
                 logMessage("Stream error: " + err, "error");
                 console.error(error);
                 runBtn.disabled = false;
+                abortStreamingBtn.disabled = true;
+                currentStreaming = undefined;
             },
         });
     event.preventDefault();
