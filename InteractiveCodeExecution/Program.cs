@@ -2,6 +2,7 @@ using Docker.DotNet;
 using InteractiveCodeExecution.ExecutorEntities;
 using InteractiveCodeExecution.Hubs;
 using InteractiveCodeExecution.Services;
+using Microsoft.AspNetCore.Routing.Template;
 
 namespace InteractiveCodeExecution
 {
@@ -17,6 +18,8 @@ namespace InteractiveCodeExecution
 
             var config = new DockerClientConfiguration();
             builder.Services.AddSingleton(config);
+
+            builder.Services.AddSingleton<RequestThrottler>();
             builder.Services.Configure<DockerConfiguration>(builder.Configuration.GetSection("InteractiveCodeExecution"));
             builder.Services.AddSingleton<IExecutorController, DockerController>();
 

@@ -8,6 +8,7 @@ namespace InteractiveCodeExecution.Hubs
     public class ExecutorHub : Hub
     {
         private IExecutorController _executor;
+        private RequestThrottler _throttler;
 
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
         private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
@@ -19,12 +20,33 @@ namespace InteractiveCodeExecution.Hubs
             MaxPayloadSizeInBytes = 2000,
         };
 
-        public ExecutorHub(IExecutorController executor)
+        public ExecutorHub(IExecutorController executor, RequestThrottler requestThrottler)
         {
             _executor = executor;
+            _throttler = requestThrottler;
         }
 
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            if (_throttler.CurrentCount <= 0)
+            {
+                yield return new("Waiting for an available container...", "debug");
+            }
+            await _throttler.WaitAsync(cancellationToken);
+            try
+            {
+                await foreach (var status in StartExecutionAsync(payload, cancellationToken))
+                {
+                    yield return status;
+                }
+            }
+            finally
+            {
+                _throttler.Release();
+            }
+        }
+
+        private async IAsyncEnumerable<LogMessage> StartExecutionAsync(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new("Starting container...", "debug");
             ExecutorHandle? handle = null;
