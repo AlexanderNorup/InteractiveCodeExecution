@@ -1,6 +1,7 @@
 ﻿using InteractiveCodeExecution.ExecutorEntities;
 using Microsoft.AspNetCore.SignalR;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace InteractiveCodeExecution.Hubs
@@ -9,6 +10,8 @@ namespace InteractiveCodeExecution.Hubs
     {
         private IExecutorController _executor;
         private RequestThrottler _throttler;
+
+        private static ConcurrentDictionary<string, bool> s_userIsExecutingMap = new ConcurrentDictionary<string, bool>();
 
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
         private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
@@ -28,6 +31,13 @@ namespace InteractiveCodeExecution.Hubs
 
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            string userId = Context.ConnectionId.ToString(); // TODO: Should be replaced with a user-auth id
+            if (s_userIsExecutingMap.GetOrAdd(userId, false))
+            {
+                yield return new("You can only run a single concurrent execution per user", "error");
+                yield break;
+            }
+
             if (_throttler.CurrentCount <= 0)
             {
                 yield return new("Waiting for an available container...", "debug");
@@ -35,6 +45,13 @@ namespace InteractiveCodeExecution.Hubs
             await _throttler.WaitAsync(cancellationToken);
             try
             {
+                if (s_userIsExecutingMap[userId])
+                {
+                    yield return new("You can only run a single concurrent execution per user", "error");
+                    yield break;
+                }
+
+                s_userIsExecutingMap[userId] = true;
                 await foreach (var status in StartExecutionAsync(payload, cancellationToken))
                 {
                     yield return status;
@@ -42,6 +59,7 @@ namespace InteractiveCodeExecution.Hubs
             }
             finally
             {
+                s_userIsExecutingMap[userId] = false;
                 _throttler.Release();
             }
         }
