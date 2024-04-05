@@ -20,7 +20,8 @@ Good luck :)
 
 (Probably already outdated. This is a PoC, so it changes all the time)
 
-https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/9ff149ee-2330-4d20-8b7b-181339ef485b
+
 
 The video shows running dotnet code and taking: `9724.30ms`. 
 
