@@ -22,6 +22,8 @@ namespace InteractiveCodeExecution
             builder.Services.Configure<DockerConfiguration>(builder.Configuration.GetSection("InteractiveCodeExecution"));
             builder.Services.AddSingleton<IExecutorController, DockerController>();
 
+            builder.Services.AddSingleton<VNCHelper>();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -38,6 +40,7 @@ namespace InteractiveCodeExecution
             app.MapRazorPages();
 
             app.MapHub<ExecutorHub>("/executorHub");
+            app.MapHub<VncHub>("/vncHub");
 
             app.Run();
         }

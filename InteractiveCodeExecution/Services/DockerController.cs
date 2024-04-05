@@ -13,12 +13,16 @@ namespace InteractiveCodeExecution.Services
         private readonly DockerConfiguration m_config;
         private readonly ILogger<DockerController> m_logger;
         private DockerClient m_client;
+        private VNCHelper m_vncClient;
+
+        private List<ExecutorContainer> m_containers = new();
 
         private Lazy<Task<bool>> m_doesSupportStorageQouta;
 
-        public DockerController(DockerClientConfiguration configuration, IOptions<DockerConfiguration> options, ILogger<DockerController> logger)
+        public DockerController(DockerClientConfiguration configuration, IOptions<DockerConfiguration> options, VNCHelper vncHelper, ILogger<DockerController> logger)
         {
             m_client = configuration.CreateClient();
+            m_vncClient = vncHelper;
             m_config = options.Value;
             m_logger = logger;
 
@@ -26,7 +30,7 @@ namespace InteractiveCodeExecution.Services
             m_doesSupportStorageQouta = new Lazy<Task<bool>>(() => StorgeQoutaIsSupportedAsync());
         }
 
-        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, CancellationToken cancellationToken = default)
+        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
             // Before getting a container, check if the payload exceeds the maximum allowed
             if (config.MaxPayloadSizeInBytes > 0)
@@ -38,7 +42,8 @@ namespace InteractiveCodeExecution.Services
                 }
             }
 
-            var container = await GetAvailableContainer(payload, config, cancellationToken);
+            var container = await GetAvailableContainer(payload, config, userId, cancellationToken);
+            m_containers.Add(container);
 
             m_logger.LogDebug("Container {Container} ready for loading files!", container.Id);
 
@@ -104,8 +109,22 @@ namespace InteractiveCodeExecution.Services
 
         public async Task ReleaseHandle(ExecutorHandle payload)
         {
+            // If a VNC connection might be active, try to close it down first
+            if (payload.Container.ContainerStreamPort is not null)
+            {
+                try
+                {
+                    await m_vncClient.CloseConnectionAsync(payload.Container.ContainerOwner);
+                }
+                catch (Exception)
+                {
+                    // Don't care
+                }
+            }
+
             try
             {
+                m_containers.RemoveAll(container => container.Id == payload.Container.Id);
                 await m_client.Containers.RemoveContainerAsync(payload.Container.Id, new()
                 {
                     Force = true,
@@ -117,7 +136,12 @@ namespace InteractiveCodeExecution.Services
             }
         }
 
-        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, ExecutorConfig config, CancellationToken cancellationToken = default)
+        public async Task<IList<ExecutorContainer>> GetAllManagedContainersAsync(CancellationToken cancellationToken = default)
+        {
+            return await Task.FromResult(new List<ExecutorContainer>(m_containers));
+        }
+
+        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
             // TODO: Either return a cached container, or rename the method
             _ = payload.PayloadType ?? throw new ArgumentNullException(nameof(payload.PayloadType));
@@ -170,6 +194,27 @@ namespace InteractiveCodeExecution.Services
                 };
             }
 
+            int? hostVncPort = null;
+            if (config.HasVncServer)
+            {
+                hostVncPort = 5900; // TOOD: Generate this somehow
+                startParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>()
+                {
+                    { VNCHelper.DefaultVncPort.ToString() + "/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = hostVncPort.ToString() } } },
+                    { "80/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = "3000" } } }
+                };
+                startParams.ExposedPorts = new Dictionary<string, EmptyStruct>()
+                {
+                    { VNCHelper.DefaultVncPort.ToString() + "/tcp", new() },
+                    { "80/tcp", new() }
+                };
+            }
+
+            if (config.EnvironmentVariables is { Count: > 0 } envs)
+            {
+                startParams.Env = new List<string>(startParams.Env.Concat(envs));
+            }
+
             var container = await m_client.Containers.CreateContainerAsync(startParams, cancellationToken).ConfigureAwait(false); ;
 
             // Container created
@@ -184,6 +229,8 @@ namespace InteractiveCodeExecution.Services
             {
                 Id = container.ID,
                 ContainerPath = ContainerPayloadPath,
+                ContainerOwner = "hej", //Should use `userId` here
+                ContainerStreamPort = hostVncPort
             };
         }
 

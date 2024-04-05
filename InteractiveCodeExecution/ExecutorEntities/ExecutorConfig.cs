@@ -34,5 +34,9 @@
         /// Set to <see langword="null"/> in order to disable any payload size storage limit (not recommended if you set <see cref="MaxContainerSizeInBytes"/> to <see langword="null"/>).
         /// </summary>
         public long? MaxPayloadSizeInBytes { get; set; }
+
+        public IList<string>? EnvironmentVariables { get; set; }
+
+        public bool HasVncServer { get; set; }
     }
 }

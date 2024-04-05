@@ -36,6 +36,10 @@ function logMessage(message, severity = "information") {
 }
 
 function abortStreaming() {
+    if (stopAllStreaming != undefined) {
+        stopAllStreaming();
+    }
+
     if (currentStreaming != undefined) {
         currentStreaming.dispose();
         currentStreaming = undefined;

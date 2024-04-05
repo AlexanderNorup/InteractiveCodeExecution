@@ -21,6 +21,12 @@ namespace InteractiveCodeExecution.Hubs
             //MaxVCpus = .5,
             MaxContainerSizeInBytes = 1024 * 1024 * 1,
             MaxPayloadSizeInBytes = 2000,
+            EnvironmentVariables = new List<string>()
+            {
+                "RESOLUTION=854x480",
+                "DISPLAY=:1.0"
+            },
+            HasVncServer = false
         };
 
         public ExecutorHub(IExecutorController executor, RequestThrottler requestThrottler)
@@ -31,7 +37,10 @@ namespace InteractiveCodeExecution.Hubs
 
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            string userId = Context.ConnectionId.ToString(); // TODO: Should be replaced with a user-auth id
+            //Temp until we have a tag to see VNC images (this breaks concurrency)
+            m_tempConfig.HasVncServer = payload.PayloadType == "vncTest";
+
+            string userId = Context.ConnectionId; // TODO: Should be replaced with a user-auth id
             if (s_userIsExecutingMap.GetOrAdd(userId, false))
             {
                 yield return new("You can only run a single concurrent execution per user", "error");
@@ -52,7 +61,7 @@ namespace InteractiveCodeExecution.Hubs
                 }
 
                 s_userIsExecutingMap[userId] = true;
-                await foreach (var status in StartExecutionAsync(payload, cancellationToken))
+                await foreach (var status in StartExecutionAsync(payload, userId, cancellationToken))
                 {
                     yield return status;
                 }
@@ -64,14 +73,14 @@ namespace InteractiveCodeExecution.Hubs
             }
         }
 
-        private async IAsyncEnumerable<LogMessage> StartExecutionAsync(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
+        private async IAsyncEnumerable<LogMessage> StartExecutionAsync(ExecutorPayload payload, string userId, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             yield return new("Starting container...", "debug");
             ExecutorHandle? handle = null;
             ExecutorPayloadTooBigException? payloadTooBigException = null;
             try
             {
-                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, Context.ConnectionAborted);
+                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, userId, Context.ConnectionAborted);
             }
             catch (ExecutorPayloadTooBigException ex)
             {
@@ -103,6 +112,15 @@ namespace InteractiveCodeExecution.Hubs
             bool hasBeenBuilt = !handle.ShouldBuild;
             try
             {
+
+                if (m_tempConfig.HasVncServer && !hasBeenBuilt)
+                {
+                    // Temp VNC handling. Should be it's own executor. We use the buildstream for now.
+                    _ = handle.BuildStream();
+                    hasBeenBuilt = true;
+                    await Task.Delay(4000);
+                }
+
                 IExecutorStream streamToRun = hasBeenBuilt ? await handle.ExecutorStream() : await handle.BuildStream();
 
                 while (!linkedCancellationToken.IsCancellationRequested)
