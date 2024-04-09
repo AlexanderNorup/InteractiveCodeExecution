@@ -2,6 +2,7 @@
 using Docker.DotNet.Models;
 using InteractiveCodeExecution.ExecutorEntities;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Formats.Tar;
 using System.Text;
@@ -16,6 +17,7 @@ namespace InteractiveCodeExecution.Services
         private VNCHelper m_vncClient;
 
         private List<ExecutorContainer> m_containers = new();
+        private readonly ConcurrentBag<int> m_vncHostPortPool;
 
         private Lazy<Task<bool>> m_doesSupportStorageQouta;
 
@@ -25,6 +27,8 @@ namespace InteractiveCodeExecution.Services
             m_vncClient = vncHelper;
             m_config = options.Value;
             m_logger = logger;
+
+            m_vncHostPortPool = new(m_config.AvailableVncPortNumbers);
 
             // This method will always return the same infrastructure for a given runtime, so we can cache the value of this method using a shared task.
             m_doesSupportStorageQouta = new Lazy<Task<bool>>(() => StorgeQoutaIsSupportedAsync());
@@ -137,6 +141,7 @@ namespace InteractiveCodeExecution.Services
                 {
                     // Don't care
                 }
+                m_vncHostPortPool.Add(payload.Container.ContainerStreamPort.Value);
             }
 
             try
@@ -214,16 +219,18 @@ namespace InteractiveCodeExecution.Services
             int? hostVncPort = null;
             if (config.HasVncServer)
             {
-                hostVncPort = 5900; // TOOD: Generate this somehow
+                if(!m_vncHostPortPool.TryTake(out var hostPort) || hostPort == default)
+                {
+                    throw new Exception("Failed to reserve host port for screen connection.");
+                }
+                hostVncPort = hostPort;
                 startParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>()
                 {
                     { VNCHelper.DefaultVncPort.ToString() + "/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = hostVncPort.ToString() } } },
-                    { "80/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = "3000" } } }
                 };
                 startParams.ExposedPorts = new Dictionary<string, EmptyStruct>()
                 {
                     { VNCHelper.DefaultVncPort.ToString() + "/tcp", new() },
-                    { "80/tcp", new() }
                 };
             }
 
