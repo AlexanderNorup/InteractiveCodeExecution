@@ -18,10 +18,10 @@ namespace InteractiveCodeExecution.Hubs
             m_vncHelper = vncHelper ?? throw new ArgumentNullException(nameof(vncHelper));
             m_executorController = executorController ?? throw new ArgumentNullException(nameof(executorController));
         }
-
-        public async Task StartConnection()
+        private static Dictionary<string, string> s_connectionToUserIdMapping = new(); // TEMPORARY
+        public async Task StartConnection(string userId) //USERID here is temporary!
         {
-            var userId = GetUserId();
+            s_connectionToUserIdMapping.Add(Context.ConnectionId, userId);
             var allContainers = await m_executorController.GetAllManagedContainersAsync();
             var userContainer = allContainers.FirstOrDefault(x => x.ContainerOwner == userId);
 
@@ -95,6 +95,7 @@ namespace InteractiveCodeExecution.Hubs
             finally
             {
                 await m_vncHelper.CloseConnectionAsync(GetUserId());
+                s_connectionToUserIdMapping.Remove(Context.ConnectionId);
             }
         }
 
@@ -103,16 +104,18 @@ namespace InteractiveCodeExecution.Hubs
             try
             {
                 await m_vncHelper.CloseConnectionAsync(GetUserId());
+
             }
             catch
             {
                 // Don't care   
             }
+            s_connectionToUserIdMapping.Remove(Context.ConnectionId);
         }
 
         private string GetUserId()
         {
-            return "hej"; //TODO: Replace with auth identifier
+            return s_connectionToUserIdMapping[Context.ConnectionId]; //TODO: Replace with auth identifier
         }
     }
 }

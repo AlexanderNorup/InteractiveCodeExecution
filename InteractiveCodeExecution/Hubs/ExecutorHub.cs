@@ -41,6 +41,7 @@ namespace InteractiveCodeExecution.Hubs
             m_tempConfig.HasVncServer = payload.PayloadType == "vncTest";
 
             string userId = Context.ConnectionId; // TODO: Should be replaced with a user-auth id
+            yield return new($"[TEMPORARY] Your user-id is: {userId}", "debug");
             if (s_userIsExecutingMap.GetOrAdd(userId, false))
             {
                 yield return new("You can only run a single concurrent execution per user", "error");

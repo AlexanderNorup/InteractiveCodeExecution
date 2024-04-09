@@ -219,7 +219,7 @@ namespace InteractiveCodeExecution.Services
             int? hostVncPort = null;
             if (config.HasVncServer)
             {
-                if(!m_vncHostPortPool.TryTake(out var hostPort) || hostPort == default)
+                if (!m_vncHostPortPool.TryTake(out var hostPort) || hostPort == default)
                 {
                     throw new Exception("Failed to reserve host port for screen connection.");
                 }
@@ -253,7 +253,7 @@ namespace InteractiveCodeExecution.Services
             {
                 Id = container.ID,
                 ContainerPath = ContainerPayloadPath,
-                ContainerOwner = "hej", //Should use `userId` here
+                ContainerOwner = userId,
                 ContainerStreamPort = hostVncPort
             };
         }

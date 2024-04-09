@@ -53,12 +53,15 @@ vncConnection.start().then(function () {
 });
 
 startStreamingButton.addEventListener("click", function (event) {
-    vncConnection.invoke("StartConnection").then(function (data) {
-        setTimeout(startVncStreaming, 5000); // Temp
-    }).catch(function (err) {
-        logMessage("Can't connect to screen!", "error");
-        return console.error(err.toString());
-    });
+    let userId = prompt("[Temporary]: Please insert your user-id here: ");
+    if (userId) {
+        vncConnection.invoke("StartConnection", userId).then(function (data) {
+            setTimeout(startVncStreaming, 5000); // Temp
+        }).catch(function (err) {
+            logMessage("Can't connect to screen!", "error");
+            return console.error(err.toString());
+        });
+    }
     event.preventDefault();
 });
 
