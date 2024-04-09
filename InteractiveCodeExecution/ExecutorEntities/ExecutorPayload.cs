@@ -6,6 +6,7 @@ namespace InteractiveCodeExecution.ExecutorEntities
         public string PayloadType { get; set; }
         public List<ExecutorFile> Files { get; set; }
 
+        public string? BackgroundCmd { get; set; }
         public string? BuildCmd { get; set; }
         public string ExecCmd { get; set; }
     }

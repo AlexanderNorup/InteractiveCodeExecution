@@ -112,13 +112,9 @@ namespace InteractiveCodeExecution.Hubs
             bool hasBeenBuilt = !handle.ShouldBuild;
             try
             {
-
-                if (m_tempConfig.HasVncServer && !hasBeenBuilt)
+                if (handle.BackgroundStream is { } bgStream)
                 {
-                    // Temp VNC handling. Should be it's own executor. We use the buildstream for now.
-                    _ = handle.BuildStream();
-                    hasBeenBuilt = true;
-                    await Task.Delay(4000);
+                    await bgStream(); // Fire and forget
                 }
 
                 IExecutorStream streamToRun = hasBeenBuilt ? await handle.ExecutorStream() : await handle.BuildStream();

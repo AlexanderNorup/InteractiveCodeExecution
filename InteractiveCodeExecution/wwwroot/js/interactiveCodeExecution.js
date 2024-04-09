@@ -6,6 +6,7 @@ const payloadTypeSelector = document.getElementById("payloadTypeSelector");
 const codeInput = document.getElementById("codeInput");
 const codeInput2 = document.getElementById("codeInput2");
 const execInput = document.getElementById("execInput");
+const backgroundInput = document.getElementById("backgroundInput");
 const buildInput = document.getElementById("buildInput");
 const runBtn = document.getElementById("runBtn");
 const clearLogsBtn = document.getElementById("clearLogsBtn");
@@ -59,6 +60,7 @@ runBtn.addEventListener("click", function (event) {
         PayloadType: payloadTypeSelector.value,
         ExecCmd: execInput.value,
         BuildCmd: buildInput.value,
+        BackgroundCmd: backgroundInput.value,
         Files: [
             {
                 Filepath: "Program.cs",

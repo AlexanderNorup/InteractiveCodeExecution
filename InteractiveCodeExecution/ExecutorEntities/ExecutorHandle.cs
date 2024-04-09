@@ -4,6 +4,7 @@
     {
         public ExecutorContainer Container { get; set; }
         public bool ShouldBuild { get; set; }
+        public Func<Task>? BackgroundStream { get; set; }
         public Func<Task<IExecutorStream>> BuildStream { get; set; }
         public Func<Task<IExecutorStream>> ExecutorStream { get; set; }
     }

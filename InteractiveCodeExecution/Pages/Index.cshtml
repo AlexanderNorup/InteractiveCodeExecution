@@ -51,6 +51,10 @@
             <input type="text" class="form-control" id="buildInput" placeholder="dotnet build ..." value="">
         </div>
         <div class="mb-3">
+            <label for="buildInput" class="form-label">Background command:</label>
+            <input type="text" class="form-control" id="backgroundInput" placeholder="bash /startup.sh" value="">
+        </div>
+        <div class="mb-3">
             <button class="btn btn-success me-2" type="button" id="runBtn" disabled>Run!</button>
             <button class="btn btn-danger" disabled="true" type="button" id="abortStreamingBtn" disabled>Abort!</button>
         </div>

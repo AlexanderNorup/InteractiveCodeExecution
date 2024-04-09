@@ -104,6 +104,23 @@ namespace InteractiveCodeExecution.Services
                 return new DockerStream(execStream, ExecutionResult.ExecutionStage.Run, resultAction);
             };
 
+            if (!string.IsNullOrWhiteSpace(payload.BackgroundCmd))
+            {
+                handle.BackgroundStream = async () =>
+                {
+                    var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
+                    {
+                        AttachStderr = false,
+                        AttachStdout = false,
+                        AttachStdin = false,
+                        Tty = false,
+                        Cmd = payload.BackgroundCmd.Split(' '),
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    await m_client.Exec.StartContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                };
+            }
+
             return handle;
         }
 
