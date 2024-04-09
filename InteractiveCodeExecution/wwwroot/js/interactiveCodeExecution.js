@@ -84,6 +84,7 @@ runBtn.addEventListener("click", function (event) {
                 logMessage(item.message, item.severity)
             },
             complete: () => {
+                stopAllStreaming();
                 logMessage("Stream completed from JavaScript-side!", "debug");
                 runBtn.disabled = false;
                 abortStreamingBtn.disabled = true;
@@ -92,6 +93,7 @@ runBtn.addEventListener("click", function (event) {
                 currentStreaming = undefined;
             },
             error: (err) => {
+                stopAllStreaming();
                 logMessage("Stream error: " + err, "error");
                 console.error(error);
                 runBtn.disabled = false;
