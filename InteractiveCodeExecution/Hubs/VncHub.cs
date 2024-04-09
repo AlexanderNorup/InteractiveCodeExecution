@@ -48,13 +48,23 @@ namespace InteractiveCodeExecution.Hubs
 
         public void PerformMouseEvent(int mouseX, int mouseY, bool clickLeft)
         {
-            var connection = m_vncHelper.GetConnection(GetUserId());
+            if (!m_vncHelper.TryGetConnection(GetUserId(), out var connection)
+                || connection is null)
+            {
+                return;
+            }
+
             connection.Connection.EnqueueMessage(new PointerEventMessage(new Position(mouseX, mouseY), clickLeft ? MouseButtons.Left : MouseButtons.None));
         }
 
         public async Task GetScreenshot()
         {
-            var bitmap = m_vncHelper.GetScreenshot(GetUserId());
+            if (!m_vncHelper.TryGetScreenshot(GetUserId(), out var bitmap)
+                || bitmap is null)
+            {
+                return;
+            }
+
             MemoryStream ms = new MemoryStream();
             bitmap.Save(ms, ImageFormat.Png);
             var base64 = Convert.ToBase64String(ms.ToArray());
@@ -69,7 +79,11 @@ namespace InteractiveCodeExecution.Hubs
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var bitmap = m_vncHelper.GetScreenshot(GetUserId());
+                    if (!m_vncHelper.TryGetScreenshot(GetUserId(), out var bitmap)
+                        || bitmap is null)
+                    {
+                        break;
+                    }
 
                     MemoryStream ms = new MemoryStream();
                     bitmap.Save(ms, ImageFormat.Png);

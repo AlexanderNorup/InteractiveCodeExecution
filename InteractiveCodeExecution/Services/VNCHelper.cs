@@ -52,6 +52,17 @@ namespace InteractiveCodeExecution.Services
             });
         }
 
+        internal bool TryGetConnection(string userId, out VncConnection? connection)
+        {
+            connection = null;
+            if (m_activeConnections.TryGetValue(userId, out var con))
+            {
+                connection = con;
+                return true;
+            }
+            return false;
+        }
+
         internal VncConnection GetConnection(string userId)
         {
             if (!m_activeConnections.TryGetValue(userId, out var con))
@@ -59,6 +70,21 @@ namespace InteractiveCodeExecution.Services
                 throw new InvalidOperationException($"The user {userId} does not have any active connections");
             }
             return con;
+        }
+
+        public bool TryGetScreenshot(string userId, out Bitmap? bitmap)
+        {
+            bitmap = null;
+            if (!TryGetConnection(userId, out var connection)
+                || connection is null)
+            {
+                return false;
+            }
+
+            var vncConnection = GetConnection(userId);
+            EnsureNonDisposedRenderTarget(vncConnection);
+            bitmap = vncConnection.RenderTarget.GetBitmap();
+            return true;
         }
 
         public Bitmap GetScreenshot(string userId)
