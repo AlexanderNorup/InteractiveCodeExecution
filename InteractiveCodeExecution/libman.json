@@ -7,7 +7,17 @@
       "destination": "wwwroot/js/signalr/",
       "files": [
         "dist/browser/signalr.min.js",
-        "dist/browser/signalr.js"
+        "dist/browser/signalr.min.js.map",
+        "dist/browser/signalr.js",
+        "dist/browser/signalr.js.map"
+      ]
+    },
+    {
+      "library": "@microsoft/signalr-protocol-msgpack@latest",
+      "destination": "wwwroot/js/signalr/",
+      "files": [
+        "dist/browser/signalr-protocol-msgpack.min.js",
+        "dist/browser/signalr-protocol-msgpack.min.js.map"
       ]
     }
   ]

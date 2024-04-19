@@ -2,6 +2,7 @@ using Docker.DotNet;
 using InteractiveCodeExecution.ExecutorEntities;
 using InteractiveCodeExecution.Hubs;
 using InteractiveCodeExecution.Services;
+using MessagePack;
 
 namespace InteractiveCodeExecution
 {
@@ -13,7 +14,12 @@ namespace InteractiveCodeExecution
 
             // Add services to the container.
             builder.Services.AddRazorPages();
-            builder.Services.AddSignalR();
+            builder.Services.AddSignalR()
+                 .AddMessagePackProtocol(options =>
+                 {
+                     options.SerializerOptions = MessagePackSerializerOptions.Standard
+                         .WithSecurity(MessagePackSecurity.UntrustedData);
+                 });
 
             var config = new DockerClientConfiguration();
             builder.Services.AddSingleton(config);

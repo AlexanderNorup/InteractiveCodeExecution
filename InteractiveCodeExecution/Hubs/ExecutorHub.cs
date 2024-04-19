@@ -1,4 +1,5 @@
 ﻿using InteractiveCodeExecution.ExecutorEntities;
+using MessagePack;
 using Microsoft.AspNetCore.SignalR;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -166,6 +167,7 @@ namespace InteractiveCodeExecution.Hubs
             }
         }
 
+        [MessagePackObject]
         public struct LogMessage
         {
             public LogMessage(string message, string severity = "information")
@@ -174,7 +176,9 @@ namespace InteractiveCodeExecution.Hubs
                 Severity = severity;
             }
 
+            [Key("Message")]
             public string Message { get; set; }
+            [Key("Severity")]
             public string Severity { get; set; }
         }
     }

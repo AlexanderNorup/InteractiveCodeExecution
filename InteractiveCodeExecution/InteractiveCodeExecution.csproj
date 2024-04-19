@@ -13,10 +13,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="8.0.4" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.6" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="SkiaSharp" Version="2.88.8" />
     <!--<PackageReference Include="MarcusW.VncClient" Version="1.0.0-alpha4" />-->
+
+    <PackageReference Include="MessagePackAnalyzer" Version="2.5.140">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,9 @@
 ﻿"use strict";
 
-const connection = new signalR.HubConnectionBuilder().withUrl("/executorHub").build();
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/executorHub")
+    .withHubProtocol(new signalR.protocols.msgpack.MessagePackHubProtocol())
+    .build();
 
 const payloadTypeSelector = document.getElementById("payloadTypeSelector");
 const codeInput = document.getElementById("codeInput");
@@ -83,7 +86,7 @@ runBtn.addEventListener("click", function (event) {
     currentStreaming = connection.stream("ExecutePayloadByStream", payload)
         .subscribe({
             next: (item) => {
-                logMessage(item.message, item.severity)
+                logMessage(item.Message, item.Severity)
             },
             complete: () => {
                 stopAllStreaming();

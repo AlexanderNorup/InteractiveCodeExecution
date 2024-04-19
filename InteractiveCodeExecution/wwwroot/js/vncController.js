@@ -1,6 +1,10 @@
 ﻿"use strict";
 
-var vncConnection = new signalR.HubConnectionBuilder().withUrl("/vncHub").build();
+var vncConnection = new signalR.HubConnectionBuilder()
+    .withUrl("/vncHub")
+    .withHubProtocol(new signalR.protocols.msgpack.MessagePackHubProtocol())
+    .build();
+
 const canvasContainer = document.getElementById("canvasContainer");
 const startStreamingButton = document.getElementById("startStreamingButton");
 const canvas = document.getElementById("streamCanvas");
