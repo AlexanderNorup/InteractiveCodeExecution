@@ -12,26 +12,62 @@ const ctx = canvas.getContext("2d");
 
 let currentVncStream;
 
-let mousePressed = false;
+let mouseX, mouseY;
+let buttonsPressed;
+let scrollDown, scrollUp = false;
 canvas.onmousemove = function (e) {
-    vncConnection.invoke("PerformMouseEvent", e.offsetX, e.offsetY, mousePressed).catch(function (err) {
-        return console.error(err.toString());
-    });
+    mouseX = e.offsetX;
+    mouseY = e.offsetY;
+
+    updateMouse();
 };
 
 canvas.onmouseup = function (e) {
-    mousePressed = false;
-    vncConnection.invoke("PerformMouseEvent", e.offsetX, e.offsetY, false).catch(function (err) {
-        return console.error(err.toString());
-    });
+    buttonsPressed = e.buttons;
+    e.preventDefault();
+    updateMouse();
 };
 
 canvas.onmousedown = function (e) {
-    mousePressed = true;
-    vncConnection.invoke("PerformMouseEvent", e.offsetX, e.offsetY, true).catch(function (err) {
+    buttonsPressed = e.buttons;
+    e.preventDefault();
+    updateMouse();
+};
+
+
+canvas.addEventListener("wheel", function (e) {
+    console.log("Scroll", e);
+    if (e.deltaY > 0) {
+        scrollDown = true;
+    } else {
+        scrollUp = true;
+    }
+    updateMouse();
+    updateMouse();
+    e.preventDefault();
+}, false);
+
+canvas.oncontextmenu = function (e) {
+    e.preventDefault();
+}
+
+function updateMouse() {
+    let payload = [
+        mouseX,
+        mouseY,
+        (buttonsPressed & 1) != 0, //Left 
+        (buttonsPressed & 2) != 0, //Right
+        (buttonsPressed & 4) != 0, //Middle
+        scrollDown,
+        scrollUp
+    ];
+
+    scrollDown = false;
+    scrollUp = false;
+    vncConnection.invoke("PerformMouseEvent", payload).catch(function (err) {
         return console.error(err.toString());
     });
-};
+}
 
 function getBase64UrlStringFromByteArray(imgData, mimeType) {
     let i = imgData.length;

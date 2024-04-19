@@ -1,10 +1,12 @@
 ﻿using InteractiveCodeExecution.ExecutorEntities;
 using InteractiveCodeExecution.Services;
+using InteractiveCodeExecution.VncEvents;
 using MarcusW.VncClient;
 using MarcusW.VncClient.Protocol.Implementation.MessageTypes.Outgoing;
 using Microsoft.AspNetCore.SignalR;
 using SkiaSharp;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace InteractiveCodeExecution.Hubs
 {
@@ -46,7 +48,7 @@ namespace InteractiveCodeExecution.Hubs
             }
         }
 
-        public void PerformMouseEvent(int mouseX, int mouseY, bool clickLeft)
+        public void PerformMouseEvent(VncMouseEvent mouseEvent)
         {
             if (!m_vncHelper.TryGetConnection(GetUserId(), out var connection)
                 || connection is null)
@@ -54,7 +56,10 @@ namespace InteractiveCodeExecution.Hubs
                 return;
             }
 
-            connection.Connection.EnqueueMessage(new PointerEventMessage(new Position(mouseX, mouseY), clickLeft ? MouseButtons.Left : MouseButtons.None));
+            var pos = new Position(mouseEvent.MouseX, mouseEvent.MouseY);
+            var buttons = GetMouseButtons(mouseEvent);
+
+            connection.Connection.EnqueueMessage(new PointerEventMessage(pos, buttons));
         }
 
         public async Task GetScreenshot()
@@ -120,6 +125,38 @@ namespace InteractiveCodeExecution.Hubs
         private string GetUserId()
         {
             return s_connectionToUserIdMapping[Context.ConnectionId]; //TODO: Replace with auth identifier
+        }
+
+        private MouseButtons GetMouseButtons(VncMouseEvent mouseEvent)
+        {
+            MouseButtons buttons = MouseButtons.None;
+
+            if (mouseEvent.LeftMouse)
+            {
+                buttons |= MouseButtons.Left;
+            }
+
+            if (mouseEvent.RightMouse)
+            {
+                buttons |= MouseButtons.Right;
+            }
+
+            if (mouseEvent.MiddleMouse)
+            {
+                buttons |= MouseButtons.Middle;
+            }
+
+            if (mouseEvent.ScrollDown)
+            {
+                buttons |= MouseButtons.WheelDown;
+            }
+
+            if (mouseEvent.ScrollUp)
+            {
+                buttons |= MouseButtons.WheelUp;
+            }
+
+            return buttons;
         }
     }
 }
