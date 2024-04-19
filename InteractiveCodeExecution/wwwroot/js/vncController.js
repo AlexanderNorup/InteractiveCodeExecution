@@ -15,10 +15,17 @@ let currentVncStream;
 let mouseX, mouseY;
 let buttonsPressed;
 let scrollDown, scrollUp = false;
-canvas.onmousemove = function (e) {
-    mouseX = e.offsetX;
-    mouseY = e.offsetY;
 
+let x11KeyMap = {};
+async function fetchKeyMap() {
+    let resp = await fetch("/JavaScriptToX11KeyboardKeyMap.json");
+    x11KeyMap = await resp.json();
+}
+
+canvas.onmousemove = function (e) {
+    mouseX = Math.round(e.offsetX * canvas.width / canvas.clientWidth);
+    mouseY = Math.round(e.offsetY * canvas.width / canvas.clientWidth);
+    canvasContainer.focus();
     updateMouse();
 };
 
@@ -34,21 +41,61 @@ canvas.onmousedown = function (e) {
     updateMouse();
 };
 
-
 canvas.addEventListener("wheel", function (e) {
-    console.log("Scroll", e);
     if (e.deltaY > 0) {
         scrollDown = true;
     } else {
         scrollUp = true;
     }
     updateMouse();
+    // Second update here is required due to the way VNC does scrolling
+    // This is because VNC doesn't say how much to scroll (like JS does).
+    // Instead it just says "scroll", and ignores the duration of the "scroll button being pressed"
+    // So to continuously scroll, you must send "scroll, not scroll, scroll" etc.
+    // Thus the weird double update
     updateMouse();
     e.preventDefault();
 }, false);
 
 canvas.oncontextmenu = function (e) {
     e.preventDefault();
+}
+
+canvasContainer.addEventListener("keydown", function (e) {
+    updateKey(e, true);
+    e.preventDefault();
+}, false);
+
+canvasContainer.addEventListener("keyup", function (e) {
+    updateKey(e, false);
+    e.preventDefault();
+}, false);
+
+function updateKey(keyEvent, pressed) {
+    let key = keyEvent.key;
+
+    let unicodeKey = 0;
+    if (key.length == 1) {
+        //Just an ordinary key. Convert to Unicode and send it in
+        unicodeKey = key.charCodeAt(0);
+    } else {
+        //Perform lookup
+        let x11Key = x11KeyMap[keyEvent.code];
+        if (x11Key == undefined) {
+            console.warn("Unsupported key", keyEvent);
+            return;
+        }
+        unicodeKey = x11Key;
+    }
+
+    console.log("Sending key:", unicodeKey)
+
+    let payload = [
+        unicodeKey,
+        pressed
+    ];
+
+    vncConnection.invoke("PerformKeyboardEvent", payload);
 }
 
 function updateMouse() {
@@ -64,9 +111,7 @@ function updateMouse() {
 
     scrollDown = false;
     scrollUp = false;
-    vncConnection.invoke("PerformMouseEvent", payload).catch(function (err) {
-        return console.error(err.toString());
-    });
+    vncConnection.invoke("PerformMouseEvent", payload);
 }
 
 function getBase64UrlStringFromByteArray(imgData, mimeType) {
@@ -98,13 +143,6 @@ vncConnection.on("ReceiveMessage", function (message) {
 
 vncConnection.on("ReceiveScreenshot", function (data) {
     writeImageData(data);
-});
-
-startStreamingButton.disabled = true;
-vncConnection.start().then(function () {
-    startStreamingButton.disabled = false;
-}).catch(function (err) {
-    return console.error(err.toString());
 });
 
 startStreamingButton.addEventListener("click", function (event) {
@@ -156,3 +194,13 @@ function stopAllStreaming() {
     canvasContainer.classList.add("d-none");
     vncConnection.invoke("StopStreaming"); //Fire and forget
 }
+
+
+
+startStreamingButton.disabled = true;
+vncConnection.start().then(function () {
+    startStreamingButton.disabled = false;
+}).catch(function (err) {
+    return console.error(err.toString());
+});
+fetchKeyMap();

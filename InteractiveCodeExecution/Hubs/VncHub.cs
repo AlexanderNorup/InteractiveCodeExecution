@@ -62,6 +62,20 @@ namespace InteractiveCodeExecution.Hubs
             connection.Connection.EnqueueMessage(new PointerEventMessage(pos, buttons));
         }
 
+        public void PerformKeyboardEvent(VncKeyboardEvent keyboardEvent)
+        {
+            if (!m_vncHelper.TryGetConnection(GetUserId(), out var connection)
+                || connection is null)
+            {
+                return;
+            }
+
+            if (Enum.IsDefined(typeof(KeySymbol), keyboardEvent.UnicodeKey))
+            {
+                connection.Connection.EnqueueMessage(new KeyEventMessage(keyboardEvent.KeyPressed, (KeySymbol)keyboardEvent.UnicodeKey));
+            }
+        }
+
         public async Task GetScreenshot()
         {
             if (!m_vncHelper.TryGetScreenshot(GetUserId(), out var bitmap)

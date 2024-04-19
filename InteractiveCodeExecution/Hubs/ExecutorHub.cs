@@ -17,7 +17,7 @@ namespace InteractiveCodeExecution.Hubs
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
         private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
         {
-            Timeout = TimeSpan.FromMinutes(1),
+            //Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
             //MaxVCpus = .5,
             MaxContainerSizeInBytes = 1024 * 1024 * 1,

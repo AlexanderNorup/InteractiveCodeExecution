@@ -36,3 +36,27 @@ body {
     border-bottom: 1px solid #dee2e6;
     animation: fadeIn .3s, ease-out, forwards;
 }
+
+.streamCanvas {
+    max-width: 100%;
+}
+
+.streamCanvasContainer {
+    text-align: center;
+    padding-top: .5rem;
+}
+
+.streamCanvasContainer:focus {
+    outline: none;
+}
+
+    .streamCanvasContainer::before {
+        content: "Keyboard events are being captured!";
+        font-weight: 700;
+        opacity: 0;
+        transition: .5s ease;
+    }
+
+    .streamCanvasContainer:focus::before {
+        opacity: 1;
+    }
