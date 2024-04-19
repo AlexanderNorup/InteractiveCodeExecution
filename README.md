@@ -24,6 +24,10 @@ Good luck :)
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
 
+**VNC Demo with keyboard and mouse events**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb34674a-30ce-42e3-86ae-a8561b162068
+
 **Demo with concurrent independent live-streamed sources:**
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/19322a6f-228f-4baf-b45b-44a50f1f3a64
