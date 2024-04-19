@@ -66,8 +66,9 @@ namespace InteractiveCodeExecution.Hubs
             }
 
             MemoryStream ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
+            bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Jpeg, 60);
             var base64 = Convert.ToBase64String(ms.ToArray());
+            bitmap.Dispose();
             await Clients.All.SendAsync("ReceiveScreenshot", "data:image/png;base64," + base64);
         }
 
@@ -86,9 +87,10 @@ namespace InteractiveCodeExecution.Hubs
                     }
 
                     MemoryStream ms = new MemoryStream();
-                    bitmap.Save(ms, ImageFormat.Png);
+                    bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Jpeg, 60);
                     base64 = Convert.ToBase64String(ms.ToArray());
-                    yield return "data:image/png;base64," + base64;
+                    yield return "data:image/jpeg;base64," + base64;
+                    bitmap.Dispose();
                     await Task.Delay(Delay, cancellationToken);
                 }
             }
