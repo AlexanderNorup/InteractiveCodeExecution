@@ -3,6 +3,7 @@ using InteractiveCodeExecution.Services;
 using MarcusW.VncClient;
 using MarcusW.VncClient.Protocol.Implementation.MessageTypes.Outgoing;
 using Microsoft.AspNetCore.SignalR;
+using SkiaSharp;
 using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
 
@@ -74,23 +75,25 @@ namespace InteractiveCodeExecution.Hubs
 
         public async IAsyncEnumerable<string> StartLivestream([EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            using MemoryStream ms = new MemoryStream();
             const int Delay = 50;
             string base64;
+            SKBitmap? bitmapReference = null;
             try
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    if (!m_vncHelper.TryGetScreenshot(GetUserId(), out var bitmap)
-                        || bitmap is null)
+                    if (!m_vncHelper.TryGetScreenshot(GetUserId(), out bitmapReference)
+                        || bitmapReference is null)
                     {
                         break;
                     }
 
-                    MemoryStream ms = new MemoryStream();
-                    bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Jpeg, 60);
+                    ms.Seek(0, SeekOrigin.Begin);
+                    bitmapReference.Encode(ms, SKEncodedImageFormat.Jpeg, 60);
                     base64 = Convert.ToBase64String(ms.ToArray());
                     yield return "data:image/jpeg;base64," + base64;
-                    bitmap.Dispose();
+                    bitmapReference.Dispose();
                     await Task.Delay(Delay, cancellationToken);
                 }
             }
@@ -98,6 +101,7 @@ namespace InteractiveCodeExecution.Hubs
             {
                 await m_vncHelper.CloseConnectionAsync(GetUserId());
                 s_connectionToUserIdMapping.Remove(Context.ConnectionId);
+                bitmapReference?.Dispose();
             }
         }
 
