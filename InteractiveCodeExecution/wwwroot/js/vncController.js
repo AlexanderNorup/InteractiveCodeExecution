@@ -33,12 +33,27 @@ canvas.onmousedown = function (e) {
     });
 };
 
+function getBase64UrlStringFromByteArray(imgData, mimeType) {
+    let i = imgData.length;
+    let binaryString = [i];
+    while (i--) {
+        binaryString[i] = String.fromCharCode(imgData[i]);
+    }
+    let data = binaryString.join('');
+
+    let base64 = window.btoa(data);
+    let url = "data:" + mimeType + ";base64," + base64;
+    return url;
+}
+
 function writeImageData(imgData) {
+    // The easiest way to draw an image from a bytearray is to convert it to base64 and display that.
+    let url = getBase64UrlStringFromByteArray(imgData, "image/jpeg");
     let image = new Image();
     image.onload = function () {
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
     };
-    image.src = imgData;
+    image.src = url;
 }
 
 vncConnection.on("ReceiveMessage", function (message) {

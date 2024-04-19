@@ -4,7 +4,6 @@ using MarcusW.VncClient;
 using MarcusW.VncClient.Protocol.Implementation.MessageTypes.Outgoing;
 using Microsoft.AspNetCore.SignalR;
 using SkiaSharp;
-using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
 
 namespace InteractiveCodeExecution.Hubs
@@ -73,7 +72,7 @@ namespace InteractiveCodeExecution.Hubs
             await Clients.All.SendAsync("ReceiveScreenshot", "data:image/png;base64," + base64);
         }
 
-        public async IAsyncEnumerable<string> StartLivestream([EnumeratorCancellation] CancellationToken cancellationToken)
+        public async IAsyncEnumerable<byte[]> StartLivestream([EnumeratorCancellation] CancellationToken cancellationToken)
         {
             using MemoryStream ms = new MemoryStream();
             const int Delay = 50;
@@ -91,8 +90,7 @@ namespace InteractiveCodeExecution.Hubs
 
                     ms.Seek(0, SeekOrigin.Begin);
                     bitmapReference.Encode(ms, SKEncodedImageFormat.Jpeg, 60);
-                    base64 = Convert.ToBase64String(ms.ToArray());
-                    yield return "data:image/jpeg;base64," + base64;
+                    yield return ms.ToArray();
                     bitmapReference.Dispose();
                     await Task.Delay(Delay, cancellationToken);
                 }
