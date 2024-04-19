@@ -20,10 +20,14 @@ Good luck :)
 
 (Probably already outdated. This is a PoC, so it changes all the time)
 
+**Simple demo just running code:**
+
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
 
-The video shows running dotnet code and taking: `9724.30ms`. 
+**VNC Demo with keyboard and mouse events**
 
-If I instead set the Exec-command to `dotnet run --project Project.csproj` and then don't use any build-command, the execution time comes down to `5432.30ms`. Still super slow for a "Hello World", but better.
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb34674a-30ce-42e3-86ae-a8561b162068
 
-Another improvement I will experiment with at some point is to re-use containers. But that brings it's own problems and security concerns.
+**Demo with concurrent independent live-streamed sources:**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/19322a6f-228f-4baf-b45b-44a50f1f3a64
