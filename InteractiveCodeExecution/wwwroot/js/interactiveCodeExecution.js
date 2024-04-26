@@ -1,42 +1,40 @@
 ﻿"use strict";
+const logList = document.getElementById("log");
+
+// Temp:
+const userIdInput = document.getElementById("uniqueUserIdInput");
+const execInput = document.getElementById("execInput");
+const backgroundInput = document.getElementById("backgroundInput");
+const buildInput = document.getElementById("buildInput");
+const payloadTypeSelector = document.getElementById("payloadTypeSelector");
 
 const connection = new signalR.HubConnectionBuilder()
     .withUrl("/executorHub")
     .withHubProtocol(new signalR.protocols.msgpack.MessagePackHubProtocol())
     .build();
 
-const payloadTypeSelector = document.getElementById("payloadTypeSelector");
-const codeInput = document.getElementById("codeInput");
-const codeInput2 = document.getElementById("codeInput2");
-const execInput = document.getElementById("execInput");
-const backgroundInput = document.getElementById("backgroundInput");
-const buildInput = document.getElementById("buildInput");
-const runBtn = document.getElementById("runBtn");
-const clearLogsBtn = document.getElementById("clearLogsBtn");
-const abortStreamingBtn = document.getElementById("abortStreamingBtn");
-
-const logList = document.getElementById("log");
-
 let currentStreaming;
 
 function logMessage(message, severity = "information") {
-    let timePill = document.createElement("span");
-    timePill.className = "font-monospace me-2 ps-1 pe-1 border rounded text-white bg-" + getBootstrapColorFromSeverity(severity);
-    timePill.textContent = (new Date()).toLocaleTimeString()
-    var text = document.createElement("span");
-    text.textContent = message;
+    for (let singleMsg of message.split("\n")) {
+        let timePill = document.createElement("span");
+        timePill.className = "font-monospace me-2 ps-1 pe-1 border rounded text-white bg-" + getBootstrapColorFromSeverity(severity);
+        timePill.textContent = (new Date()).toLocaleTimeString()
+        var text = document.createElement("span");
+        text.textContent = singleMsg;
 
-    let logEntry = document.createElement("li");
-    logEntry.className = "logEntry"
-    logEntry.appendChild(timePill);
-    logEntry.appendChild(text);
-    logList.appendChild(logEntry);
+        let logEntry = document.createElement("li");
+        logEntry.className = "logEntry"
+        logEntry.appendChild(timePill);
+        logEntry.appendChild(text);
+        logList.appendChild(logEntry);
 
-    logList.parentElement.scrollTo({
-        top: logList.scrollHeight,
-        left: 0,
-        behavior: "smooth",
-    });
+        logList.parentElement.scrollTo({
+            top: logList.scrollHeight,
+            left: 0,
+            behavior: "smooth",
+        });
+    }
 }
 
 function abortStreaming() {
@@ -49,39 +47,28 @@ function abortStreaming() {
         currentStreaming = undefined;
         logMessage("Execution aborted by user", "error");
     }
-    runBtn.disabled = false;
-    abortStreamingBtn.disabled = true;
 }
-abortStreamingBtn.addEventListener("click", abortStreaming);
 
-connection.on("LogMessage", function (message) {
-    logMessage(message);
-});
-
-runBtn.addEventListener("click", function (event) {
+function startCodeExecution(files, onExecutionFinished) {
     let payload = {
         PayloadType: payloadTypeSelector.value,
         ExecCmd: execInput.value,
         BuildCmd: buildInput.value,
         BackgroundCmd: backgroundInput.value,
-        Files: [
-            {
-                Filepath: "Program.cs",
-                Content: codeInput.value,
-                type: "Utf8TextFile"
-            },
-            {
-                Filepath: "Project.csproj",
-                Content: codeInput2.value,
-                type: "Utf8TextFile"
-            }
-        ]
+        Files: []
     };
+
+    for (let file of Object.entries(files)) {
+        payload.Files.push({
+            Filepath: file[0],
+            Content: file[1].getCurrentContent(),
+            type: "Utf8TextFile"
+        });
+    }
+
     const startTime = performance.now();
     abortStreaming();
-
-    runBtn.disabled = true;
-    abortStreamingBtn.disabled = false;
+    logList.innerHTML = "";
 
     currentStreaming = connection.stream("ExecutePayloadByStream", payload)
         .subscribe({
@@ -91,27 +78,29 @@ runBtn.addEventListener("click", function (event) {
             complete: () => {
                 stopAllStreaming();
                 logMessage("Stream completed from JavaScript-side!", "debug");
-                runBtn.disabled = false;
-                abortStreamingBtn.disabled = true;
                 const endTime = performance.now();
                 logMessage(`Total runtime: ${endTime - startTime} ms`, "debug");
                 currentStreaming = undefined;
+                if (onExecutionFinished) {
+                    onExecutionFinished();
+                }
             },
             error: (err) => {
                 stopAllStreaming();
                 logMessage("Stream error: " + err, "error");
                 console.error(error);
-                runBtn.disabled = false;
-                abortStreamingBtn.disabled = true;
                 currentStreaming = undefined;
+                if (onExecutionFinished) {
+                    onExecutionFinished();
+                }
             },
         });
-    event.preventDefault();
+}
+
+connection.on("LogMessage", function (message) {
+    logMessage(message);
 });
 
-clearLogsBtn.addEventListener("click", function (event) {
-    logList.innerHTML = "";
-});
 
 connection.start().then(function () {
     runBtn.disabled = false;

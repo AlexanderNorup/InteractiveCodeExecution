@@ -199,6 +199,7 @@ function stopAllStreaming() {
 
 startStreamingButton.disabled = true;
 vncConnection.start().then(function () {
+    console.log("VNC SignalR hub connected");
     startStreamingButton.disabled = false;
 }).catch(function (err) {
     return console.error(err.toString());
