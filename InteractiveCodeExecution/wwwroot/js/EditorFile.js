@@ -7,6 +7,7 @@ class EditorFile {
         this.contents = contents;
         this.editorType = editorType;
 
+        this.monacoMarkers = [];
         this.monacoViewState = null; // Used to store scroll-position, cursor data etc.
         this.monacoModel = monaco.editor.createModel(this.contents, this.editorType)
     }

@@ -13,7 +13,7 @@ require(['vs/editor/editor.main'], function () {
 
     const fileListElement = document.getElementById("fileList");
     let currentFileLoaded = null;
-    
+
     editorFiles = {
         "Program.cs": new EditorFile("Program.cs", "Console.WriteLine(\"Hello World\");", "csharp"),
         "Project.csproj": new EditorFile("Project.csproj", `<Project Sdk="Microsoft.NET.Sdk">
@@ -42,9 +42,43 @@ require(['vs/editor/editor.main'], function () {
             setFileView(firstFile[1]);
         }
 
+        // So we can recieve source errors from the backend
+        registerSourceErrorHandler(handleSourceErrors);
+
         // no point in keeping this around.
         window.removeEventListener("load", initEditor);
     };
+
+    function handleSourceErrors(errors) {
+        console.log("Got source errors", errors);
+        const groupedByFile = Object.groupBy(errors, ({ AffectedFile }) => AffectedFile);
+
+        for (let errorGroup of Object.entries(groupedByFile)) {
+            let err = errorGroup[0];
+            let file = editorFiles[err];
+            if (file === undefined) {
+                continue;
+            }
+
+            let markersForThisFile = [];
+            for (let fileError of errorGroup[1]) {
+                if (fileError.Line === null) {
+                    // Generic error. We don't have the line-number for this one..
+                    logMessage("["+ fileError.AffectedFile + "]" +  fileError.ErrorCode + ": " + fileError.ErrorMessage, "error");
+                    continue;
+                }
+                markersForThisFile.push({
+                    message: fileError.ErrorCode + ": " + fileError.ErrorMessage,
+                    severity: fileError.ErrorMessage == "warning" ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+                    startLineNumber: fileError.Line,
+                    endLineNumber: fileError.Line,
+                    startColumn: fileError.Column,
+                });
+            }
+            monaco.editor.setModelMarkers(file.monacoModel, "owner", markersForThisFile); 
+        }
+
+    }
 
     function redrawFileList() {
         fileListElement.innerHTML = "";
@@ -117,8 +151,6 @@ require(['vs/editor/editor.main'], function () {
         startCodeExecution(editorFiles, abortExecution);
     };
     abortBtn.onclick = abortExecution;
-
-    
 
     window.addEventListener("resize", function () {
         if (editor !== null) {

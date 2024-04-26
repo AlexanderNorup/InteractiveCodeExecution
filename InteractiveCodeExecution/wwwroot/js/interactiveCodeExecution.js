@@ -102,6 +102,12 @@ connection.on("LogMessage", function (message) {
 });
 
 
+function registerSourceErrorHandler(handler) {
+    if (connection !== null && connection.state == "Connected") {
+        connection.on("SourceErrors", handler);
+    }
+}
+
 connection.start().then(function () {
     runBtn.disabled = false;
     logMessage("Connected to backend with SignalR");

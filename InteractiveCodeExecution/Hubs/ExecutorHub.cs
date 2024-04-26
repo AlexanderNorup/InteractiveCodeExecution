@@ -1,8 +1,10 @@
 ﻿using InteractiveCodeExecution.ExecutorEntities;
+using InteractiveCodeExecution.SourceParsers;
 using MessagePack;
 using Microsoft.AspNetCore.SignalR;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace InteractiveCodeExecution.Hubs
@@ -112,6 +114,10 @@ namespace InteractiveCodeExecution.Hubs
             const int BufferSize = 4096;
             var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
             bool hasBeenBuilt = !handle.ShouldBuild;
+
+            ISourceErrorParser sourceErrorParser = new CSharpSourceErrorParser(); //TODO: Resolve this and allow for others
+            var sourceErrors = new List<ExecutionSourceError>();
+
             try
             {
                 if (handle.BackgroundStream is { } bgStream)
@@ -153,6 +159,19 @@ namespace InteractiveCodeExecution.Hubs
                     }
 
                     var outStr = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+
+                    if (sourceErrorParser is not null)
+                    {
+                        foreach (var line in outStr.Split("\n"))
+                        {
+                            if (sourceErrorParser.TryParseLine(line, out var err) && err is { })
+                            {
+                                sourceErrors.Add(err);
+                            }
+                        }
+                    }
+
+
                     yield return new($"{outStr}", result.Target == ExecutorStreamType.StdOut ? "information" : "error");
                 }
             }
@@ -164,6 +183,11 @@ namespace InteractiveCodeExecution.Hubs
             if (timeoutCt.IsCancellationRequested)
             {
                 yield return new($"Execution was aborted because it went on for too long. Maximum allowed time is {m_tempConfig.Timeout}", "error");
+            }
+
+            if (sourceErrors.Any())
+            {
+                await Clients.Caller.SendAsync("SourceErrors", sourceErrors, Context.ConnectionAborted).ConfigureAwait(false);
             }
         }
 
