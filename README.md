@@ -24,6 +24,12 @@ Good luck :)
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
 
+**Demo with new GUI and simple feedback**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/0eec83e0-3df8-4105-8d27-45cf84d66a53
+
+You might notice it dosn't remove the errors after I fixed them. As I made this video, I simply just had not fixed that yet.
+
 **VNC Demo with keyboard and mouse events**
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb34674a-30ce-42e3-86ae-a8561b162068
