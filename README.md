@@ -1,3 +1,11 @@
+> [!IMPORTANT]  
+> Current development is happening on the `an/with-local-vncclient-build` branch!
+> 
+> Please go there to see progress:
+> https://github.com/AlexanderNorup/InteractiveCodeExecution/tree/an/with-local-vncclient-build
+
+
+
 # Interactive Code Execution
 
 This project contains code relating to my ISA (Individual Student Activity) *"Interactive Code Execution in ScalableTeaching"*. 
