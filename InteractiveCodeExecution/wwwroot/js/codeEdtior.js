@@ -16,6 +16,8 @@ require(['vs/editor/editor.main'], function () {
     const abortBtn = document.getElementById("abortBtn");
     const watchBtn = document.getElementById("startStreamingButton");
 
+    const submitCodeBtn = document.getElementById("submitCodeBtn");
+
     const fileListElement = document.getElementById("fileList");
     let currentFileLoaded = null;
 
@@ -125,6 +127,10 @@ require(['vs/editor/editor.main'], function () {
 
     startAssignmentBtn.addEventListener("click", function () {
         setBackingAssignment(assignmentSelector.value);
+    });
+
+    submitCodeBtn.addEventListener("click", function () {
+        submitAssignment(currentAssignment, editorFiles);
     });
 
     fileListElement.addEventListener("click", function (e) {

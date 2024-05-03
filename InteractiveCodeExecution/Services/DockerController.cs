@@ -45,7 +45,7 @@ namespace InteractiveCodeExecution.Services
             // Before getting a container, check if the payload exceeds the maximum allowed
             if (config.MaxPayloadSizeInBytes > 0)
             {
-                long numBytes = CalculatePayloadSizeInBytes(payload);
+                long numBytes = PayloadUtils.CalculatePayloadSizeInBytes(payload);
                 if (numBytes > config.MaxPayloadSizeInBytes)
                 {
                     throw new ExecutorPayloadTooBigException(config.MaxPayloadSizeInBytes.Value, numBytes);
@@ -235,26 +235,6 @@ namespace InteractiveCodeExecution.Services
             };
         }
 
-        private long CalculatePayloadSizeInBytes(ExecutorPayload payload)
-        {
-            long totalSize = 0;
-            if (payload.Files is null || !payload.Files.Any())
-            {
-                return totalSize;
-            }
-
-            foreach (var file in payload.Files)
-            {
-                totalSize += file.ContentType switch
-                {
-                    ExecutorFileType.Base64BinaryFile => (3 * file.Content.Length) / 4, // 3 bytes per 4 characters in base64
-                    _ => (long)Encoding.UTF8.GetMaxByteCount(file.Content.Length),
-                };
-            }
-
-            return totalSize;
-        }
-
         private async Task UploadPayloadToContainerAsync(ExecutorPayload payload, ExecutorContainer container, CancellationToken cancellationToken = default)
         {
             if (payload.Files is null || !payload.Files.Any())
@@ -263,21 +243,7 @@ namespace InteractiveCodeExecution.Services
             }
             using (var tarBall = new MemoryStream())
             {
-                var tarWriter = new TarWriter(tarBall);
-
-                foreach (var file in payload.Files)
-                {
-                    using var dataStream = new MemoryStream(GetFileContentAsByteArray(file));
-
-                    var tarEntry = new GnuTarEntry(TarEntryType.RegularFile, file.Filepath)
-                    {
-                        DataStream = dataStream
-                    };
-
-                    await tarWriter.WriteEntryAsync(tarEntry, cancellationToken).ConfigureAwait(false);
-                }
-
-                tarBall.Seek(0, SeekOrigin.Begin);
+                await PayloadUtils.WritePayloadToTarball(payload, tarBall, cancellationToken).ConfigureAwait(false);
                 await m_client.Containers.ExtractArchiveToContainerAsync(container.Id, new()
                 {
                     AllowOverwriteDirWithFile = false,
@@ -285,6 +251,8 @@ namespace InteractiveCodeExecution.Services
                 }, tarBall, cancellationToken).ConfigureAwait(false);
             }
         }
+
+
 
         private async Task<bool> StorgeQoutaIsSupportedAsync(CancellationToken cancellationToken = default)
         {
@@ -310,11 +278,5 @@ namespace InteractiveCodeExecution.Services
 
             return false;
         }
-
-        private static byte[] GetFileContentAsByteArray(ExecutorFile file) => file.ContentType switch
-        {
-            ExecutorFileType.Base64BinaryFile => Convert.FromBase64String(file.Content),
-            _ => Encoding.UTF8.GetBytes(file.Content),
-        };
     }
 }

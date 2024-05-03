@@ -103,6 +103,60 @@ function startCodeExecution(assignmentId, files, buildOnly, onExecutionFinished)
         });
 }
 
+async function submitAssignment(assignmentId, files) {
+    if (assignmentId === null) {
+        logMessage("Select an assignment in order to hand it in!", "error");
+        return;
+    }
+
+    let userId = prompt("Are you sure you want to hand-in? If so, please type your user-id (PoC, it should be extracted from auth)");
+    if (userId === null) {
+        return;
+    }
+
+    // Prepare payload
+    let payload = {
+        AssignmentId: assignmentId.AssignmentId,
+        BuildOnly: false, // This is unused for assignemtns
+        Files: []
+    };
+
+    for (let file of Object.entries(files)) {
+        payload.Files.push({
+            Filepath: file[0],
+            Content: file[1].getCurrentContent(),
+            type: "Utf8TextFile"
+        });
+    }
+
+    // Submit it
+    let submissionPayload = {
+        Payload: payload,
+        UserId: userId
+    };
+
+    try {
+        const response = await fetch(AssignmentApiUrl + "/submit", {
+            method: "POST",
+            cache: "no-cache",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            redirect: "follow",
+            referrerPolicy: "no-referrer",
+            body: JSON.stringify(submissionPayload),
+        });
+        if (response.ok) {
+            logMessage("You code has been successfully submitted!");
+        } else {
+            logMessage(await response.text(), "error");
+        }
+    } catch (error) {
+        logMessage("Submission failed!", "error");
+        console.error(error);
+    }
+}
+
 connection.on("LogMessage", function (message) {
     logMessage(message);
 });

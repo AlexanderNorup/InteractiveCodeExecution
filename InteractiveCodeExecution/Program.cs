@@ -36,6 +36,7 @@ namespace InteractiveCodeExecution
             builder.Services.AddSingleton<RequestThrottler>();
             builder.Services.Configure<DockerConfiguration>(builder.Configuration.GetSection("InteractiveCodeExecution"));
             builder.Services.AddSingleton<IExecutorAssignmentProvider, PoCAssignmentProvider>();
+            builder.Services.AddSingleton<IExecutorAssignmentSubmissionHandler, PoCAssignmentSubmissionHandler>();
             builder.Services.AddSingleton<IExecutorController, DockerController>();
 
             builder.Services.AddSingleton<VNCHelper>();
