@@ -77,7 +77,12 @@ require(['vs/editor/editor.main'], function () {
             }
             monaco.editor.setModelMarkers(file.monacoModel, "owner", markersForThisFile); 
         }
+    }
 
+    function clearSourceMakers() {
+        for (let file of Object.entries(editorFiles)) {
+            monaco.editor.setModelMarkers(file[1].monacoModel, "owner", []); 
+        }
     }
 
     function redrawFileList() {
@@ -148,6 +153,7 @@ require(['vs/editor/editor.main'], function () {
     runBtn.onclick = function () {
         abortBtn.classList.remove("d-none");
         runBtn.classList.add("d-none");
+        clearSourceMakers();
         startCodeExecution(editorFiles, abortExecution);
     };
     abortBtn.onclick = abortExecution;
