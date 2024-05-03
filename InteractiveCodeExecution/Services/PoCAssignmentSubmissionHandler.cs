@@ -25,7 +25,7 @@ namespace InteractiveCodeExecution.Services
 
             if (File.Exists(assignmentTarFile))
             {
-                const bool AllowReHandIn = false; // Let's just say this field is dynamic ;) 
+                const bool AllowReHandIn = true; // Let's just say this field is dynamic ;) 
 
                 if (!AllowReHandIn)
                 {

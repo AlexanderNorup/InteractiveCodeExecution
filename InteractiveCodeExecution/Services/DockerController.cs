@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Formats.Tar;
+using System.Reflection.Metadata;
 using System.Text;
 
 namespace InteractiveCodeExecution.Services
@@ -150,8 +151,12 @@ namespace InteractiveCodeExecution.Services
 
         private async Task<ExecutorContainer> GetAvailableContainer(string image, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
-            const string ContainerPayloadPath = "/payload";
+            if (!await EnsureLocalImagePresent(image))
+            {
+                throw new Exception($"Cannot find image '{image}'");
+            }
 
+            const string ContainerPayloadPath = "/payload";
             var startParams = new CreateContainerParameters()
             {
                 Image = image,
@@ -252,7 +257,47 @@ namespace InteractiveCodeExecution.Services
             }
         }
 
+        private static ConcurrentDictionary<string, bool> s_imageCache = new ConcurrentDictionary<string, bool>();
+        private async Task<bool> EnsureLocalImagePresent(string image, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(image))
+            {
+                return false;
+            }
 
+            if (s_imageCache.TryGetValue(image, out var exists))
+            {
+                return exists;
+            }
+
+            try
+            {
+                await m_client.Images.InspectImageAsync(image, cancellationToken).ConfigureAwait(false);
+                s_imageCache.TryAdd(image, true);
+                return true;
+            }
+            catch (DockerImageNotFoundException)
+            {
+                m_logger.LogInformation("Could not find image {Image}. Attempting to pull!", image);
+                try
+                {
+                    var progressHandler = new ConsoleProgress(image, m_logger);
+
+                    await m_client.Images.CreateImageAsync(new() { FromImage = image }, new(), progressHandler, cancellationToken);
+
+                    m_logger.LogInformation("Image {Image} successfully pulled!!", image);
+                    s_imageCache.TryAdd(image, true);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    m_logger.LogError(e, "Image {Image} successfully pulled!!", image);
+                    s_imageCache.TryAdd(image, false); // We can't find this image
+                    return true;
+                }
+            }
+
+        }
 
         private async Task<bool> StorgeQoutaIsSupportedAsync(CancellationToken cancellationToken = default)
         {
@@ -277,6 +322,21 @@ namespace InteractiveCodeExecution.Services
                 RequiredDriver, RequiredBackingSystem, info.Driver, backingDriver is { Length: >= 2 } ? backingDriver[1] : "<unknown>");
 
             return false;
+        }
+    }
+
+    internal class ConsoleProgress : IProgress<JSONMessage>
+    {
+        public ILogger<DockerController> m_logger;
+        public string m_name;
+        public ConsoleProgress(string imageName, ILogger<DockerController> logger)
+        {
+            m_name = imageName ?? throw new ArgumentNullException(nameof(imageName));
+            m_logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+        public void Report(JSONMessage value)
+        {
+            m_logger.LogDebug("Downloading {ImageName}: {Status}!", m_name, value.Status);
         }
     }
 }
