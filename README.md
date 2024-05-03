@@ -30,6 +30,11 @@ https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/0eec83
 
 You might notice it dosn't remove the errors after I fixed them. As I made this video, I simply just had not fixed that yet.
 
+
+**Demo with assignments and submissions**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bf84299e-6b42-4ccb-be9b-2bf0aaf618a6
+
 **VNC Demo with keyboard and mouse events**
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb34674a-30ce-42e3-86ae-a8561b162068
