@@ -69,7 +69,7 @@ require(['vs/editor/editor.main'], function () {
                 }
                 markersForThisFile.push({
                     message: fileError.ErrorCode + ": " + fileError.ErrorMessage,
-                    severity: fileError.ErrorMessage == "warning" ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+                    severity: fileError.Type == "warning" ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
                     startLineNumber: fileError.Line,
                     endLineNumber: fileError.Line,
                     startColumn: fileError.Column,

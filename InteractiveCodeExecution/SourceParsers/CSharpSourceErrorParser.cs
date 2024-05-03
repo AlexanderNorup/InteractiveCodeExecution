@@ -5,8 +5,9 @@ namespace InteractiveCodeExecution.SourceParsers
 {
     public class CSharpSourceErrorParser : ISourceErrorParser
     {
-        // https://regex101.com/r/XimKxn/1
-        private static Regex DotnetErrorParser = new Regex("^\\/.+\\/(?'filePath'.+)\\((?'lineNum'\\d+),(?'columnNum'\\d+)\\).*(?'type'error|warning)\\s?(?'code'.*):(?'message'.*)", RegexOptions.Compiled);
+        // Improvement: This regex has hardcoded what the payload path is. Ideally, it should pull that from somewhere central where DockerController also pulls it
+        // https://regex101.com/r/XimKxn/3
+        private static Regex DotnetErrorParser = new Regex("^\\/payload\\/(?'filePath'.+)\\((?'lineNum'\\d+),(?'columnNum'\\d+)\\).*(?'type'error|warning)\\s?(?'code'.*):(?'message'.*)", RegexOptions.Compiled);
 
         public bool TryParseLine(string line, out ExecutionSourceError? executionSourceError)
         {
