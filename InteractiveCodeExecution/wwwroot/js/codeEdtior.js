@@ -1,34 +1,27 @@
 ﻿"use strict";
+const AssignmentApiUrl = "/api/assignments";
 let editorFiles = {}; // For debug reachability
 let editor = null;
 require(['vs/editor/editor.main'], function () {
+    const startAssignmentBtn = document.getElementById("startAssignmentBtn");
+    const assignmentSelector = document.getElementById("assignmentSelector");
+
     const newFileBtn = document.getElementById("newFileBtn");
     const uploadFileBtn = document.getElementById("uploadFileBtn");
     const editorContainer = document.getElementById("editorContainer");
     const editorElement = document.getElementById('editor');
 
     const runBtn = document.getElementById("runBtn");
+    const buildBtn = document.getElementById("buildBtn");
     const abortBtn = document.getElementById("abortBtn");
     const watchBtn = document.getElementById("startStreamingButton");
 
     const fileListElement = document.getElementById("fileList");
     let currentFileLoaded = null;
 
-    editorFiles = {
-        "Program.cs": new EditorFile("Program.cs", "Console.WriteLine(\"Hello World\");", "csharp"),
-        "Project.csproj": new EditorFile("Project.csproj", `<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-</Project>
-`, "xml"),
-        "script.py": new EditorFile("script.py", "print(\"Hello World\")", "python"),
-    };
+    let currentAssignment = null;
 
-
+    editorFiles = {};
 
     const initEditor = function () {
         editor = monaco.editor.create(editorElement, {
@@ -64,7 +57,7 @@ require(['vs/editor/editor.main'], function () {
             for (let fileError of errorGroup[1]) {
                 if (fileError.Line === null) {
                     // Generic error. We don't have the line-number for this one..
-                    logMessage("["+ fileError.AffectedFile + "]" +  fileError.ErrorCode + ": " + fileError.ErrorMessage, "error");
+                    logMessage("[" + fileError.AffectedFile + "]" + fileError.ErrorCode + ": " + fileError.ErrorMessage, "error");
                     continue;
                 }
                 markersForThisFile.push({
@@ -75,13 +68,13 @@ require(['vs/editor/editor.main'], function () {
                     startColumn: fileError.Column,
                 });
             }
-            monaco.editor.setModelMarkers(file.monacoModel, "owner", markersForThisFile); 
+            monaco.editor.setModelMarkers(file.monacoModel, "owner", markersForThisFile);
         }
     }
 
     function clearSourceMakers() {
         for (let file of Object.entries(editorFiles)) {
-            monaco.editor.setModelMarkers(file[1].monacoModel, "owner", []); 
+            monaco.editor.setModelMarkers(file[1].monacoModel, "owner", []);
         }
     }
 
@@ -109,6 +102,30 @@ require(['vs/editor/editor.main'], function () {
         redrawFileList();
     }
 
+    async function setBackingAssignment(newAssignmentId) {
+        try {
+            const newAssignmentResp = await fetch(AssignmentApiUrl + "/" + newAssignmentId);
+            const newAssignmentJson = await newAssignmentResp.json();
+
+            console.info("Starting new assignment", newAssignmentJson);
+            editorFiles = {}; // Clear current editor!
+            if (newAssignmentJson.InitialPayload) {
+                for (let initialFile of newAssignmentJson.InitialPayload) {
+                    editorFiles[initialFile.Filepath] = new EditorFile(initialFile.Filepath, initialFile.Content);
+                }
+            }
+
+            currentAssignment = newAssignmentJson;
+            redrawFileList();
+        } catch (e) {
+            console.error(e);
+            logMessage("Failed to start assignment! Invalid response from backend!", "error");
+        }
+    }
+
+    startAssignmentBtn.addEventListener("click", function () {
+        setBackingAssignment(assignmentSelector.value);
+    });
 
     fileListElement.addEventListener("click", function (e) {
         if (editor === null) {
@@ -146,16 +163,32 @@ require(['vs/editor/editor.main'], function () {
 
     const abortExecution = function () {
         runBtn.classList.remove("d-none");
+        buildBtn.classList.remove("d-none");
         abortBtn.classList.add("d-none");
         abortStreaming();
     };
 
-    runBtn.onclick = function () {
+    function runOrBuild(build = false) {
+        if (currentAssignment === null) {
+            logMessage("Select an assignment in order to run code!", "error");
+            return;
+        }
+
         abortBtn.classList.remove("d-none");
         runBtn.classList.add("d-none");
+        buildBtn.classList.add("d-none");
         clearSourceMakers();
-        startCodeExecution(editorFiles, abortExecution);
+        startCodeExecution(currentAssignment.AssignmentId, editorFiles, build, abortExecution);
+    }
+
+    buildBtn.onclick = function () {
+        runOrBuild(true);
     };
+
+    runBtn.onclick = function () {
+        runOrBuild(false);
+    };
+
     abortBtn.onclick = abortExecution;
 
     window.addEventListener("resize", function () {

@@ -4,7 +4,6 @@ using MessagePack;
 using Microsoft.AspNetCore.SignalR;
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace InteractiveCodeExecution.Hubs
@@ -12,37 +11,30 @@ namespace InteractiveCodeExecution.Hubs
     public class ExecutorHub : Hub
     {
         private IExecutorController _executor;
+        private IExecutorAssignmentProvider _assignmentProvider;
         private RequestThrottler _throttler;
 
         private static ConcurrentDictionary<string, bool> s_userIsExecutingMap = new ConcurrentDictionary<string, bool>();
 
         // This variable is temporary. Is should be tied with Assignments when they're implemented.
-        private static readonly ExecutorConfig m_tempConfig = new ExecutorConfig()
+        public static readonly ExecutorConfig DefaultConfig = new ExecutorConfig()
         {
             //Timeout = TimeSpan.FromMinutes(1),
             MaxMemoryBytes = 1024 * 1024 * 512L, // 512 MB ram
             //MaxVCpus = .5,
             MaxContainerSizeInBytes = 1024 * 1024 * 1,
             MaxPayloadSizeInBytes = 2000,
-            EnvironmentVariables = new List<string>()
-            {
-                "RESOLUTION=854x480",
-                "DISPLAY=:1.0"
-            },
-            HasVncServer = false
         };
 
-        public ExecutorHub(IExecutorController executor, RequestThrottler requestThrottler)
+        public ExecutorHub(IExecutorController executor, IExecutorAssignmentProvider assignmentProvider, RequestThrottler requestThrottler)
         {
             _executor = executor;
+            _assignmentProvider = assignmentProvider;
             _throttler = requestThrottler;
         }
 
         public async IAsyncEnumerable<LogMessage> ExecutePayloadByStream(ExecutorPayload payload, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            //Temp until we have a tag to see VNC images (this breaks concurrency)
-            m_tempConfig.HasVncServer = payload.PayloadType == "vncTest";
-
             string userId = Context.ConnectionId; // TODO: Should be replaced with a user-auth id
             yield return new($"[TEMPORARY] Your user-id is: {userId}", "debug");
             if (s_userIsExecutingMap.GetOrAdd(userId, false))
@@ -79,31 +71,56 @@ namespace InteractiveCodeExecution.Hubs
 
         private async IAsyncEnumerable<LogMessage> StartExecutionAsync(ExecutorPayload payload, string userId, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            // Get assignment
+            if (string.IsNullOrEmpty(payload.AssignmentId)
+                || !_assignmentProvider.TryGetAssignment(payload.AssignmentId, out var assignment)
+                || assignment is null)
+            {
+                yield return new("Could not associate request with an assignment", "error");
+                yield break;
+            }
+
+            var config = assignment.ExecutorConfig ?? DefaultConfig;
+
             yield return new("Starting container...", "debug");
             ExecutorHandle? handle = null;
-            ExecutorPayloadTooBigException? payloadTooBigException = null;
+            Exception? handleException = null;
             try
             {
-                handle = await _executor.GetExecutorHandle(payload, m_tempConfig, userId, Context.ConnectionAborted);
+                handle = await _executor.GetExecutorHandle(payload, assignment, config, userId, Context.ConnectionAborted);
             }
-            catch (ExecutorPayloadTooBigException ex)
+            catch (Exception ex)
             {
                 // Using this jank because you're not allowed to 'yield return' in catch blocks. 
-                payloadTooBigException = ex;
+                handleException = ex;
             }
 
             if (handle is null)
             {
-                yield return new(payloadTooBigException?.Message ?? "Failed to start a container", "error");
+                if (handleException is ExecutorPayloadTooBigException)
+                {
+                    yield return new(handleException.Message ?? "Failed to start a container", "error");
+                }
+                else if (handleException is not null)
+                {
+                    yield return new("Failed to start a container. Contact a system-admin", "error");
+                    throw handleException; // We do it this way, because we don't want to expose all errors to users
+                }
+                yield break;
+            }
+
+            if (!handle.ExecutorStreams.Any())
+            {
+                yield return new("There are no commands to run.", "error");
                 yield break;
             }
 
             yield return new("Starting execution!", "debug");
 
             var timeoutCancellationToken = new CancellationTokenSource();
-            if (m_tempConfig.Timeout > TimeSpan.Zero)
+            if (config.Timeout > TimeSpan.Zero)
             {
-                timeoutCancellationToken.CancelAfter(m_tempConfig.Timeout.Value);
+                timeoutCancellationToken.CancelAfter(config.Timeout.Value);
             }
 
             var timeoutCt = timeoutCancellationToken.Token;
@@ -113,19 +130,20 @@ namespace InteractiveCodeExecution.Hubs
 
             const int BufferSize = 4096;
             var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
-            bool hasBeenBuilt = !handle.ShouldBuild;
 
             ISourceErrorParser sourceErrorParser = new CSharpSourceErrorParser(); //TODO: Resolve this and allow for others
             var sourceErrors = new List<ExecutionSourceError>();
 
+            int completedStreamsCount = 0;
+            var streams = handle.ExecutorStreams.GetEnumerator();
             try
             {
-                if (handle.BackgroundStream is { } bgStream)
+                streams.MoveNext();
+                var streamToRun = await GetNextExecutorStream(streams).ConfigureAwait(false);
+                if (streamToRun is null)
                 {
-                    await bgStream(); // Fire and forget
+                    yield break;
                 }
-
-                IExecutorStream streamToRun = hasBeenBuilt ? await handle.ExecutorStream() : await handle.BuildStream();
 
                 while (!linkedCancellationToken.IsCancellationRequested)
                 {
@@ -143,18 +161,26 @@ namespace InteractiveCodeExecution.Hubs
                     }
                     if (result.EndOfStream)
                     {
-                        var executionResult = await streamToRun.GetExecutionResultAsync();
+                        var executionResult = await streamToRun.GetExecutionResultAsync().ConfigureAwait(false);
+                        completedStreamsCount++;
+                        yield return new($"Execution stage {completedStreamsCount} ({executionResult.Stage}) exited with code: {executionResult.ReturnCode}", "debug");
 
-                        yield return new($"Execution stage: {executionResult.Stage} exited with code: {executionResult.ReturnCode}", "debug");
-
-                        if (hasBeenBuilt || executionResult.ReturnCode != 0)
+                        if (executionResult.ReturnCode != 0)
                         {
                             break;
                         }
 
-                        hasBeenBuilt = true;
-                        streamToRun = await handle.ExecutorStream();
-                        yield return new("Successfully built!", "debug");
+                        if (!streams.MoveNext())
+                        {
+                            // This was the last stream. Return and close the container
+                            break;
+                        }
+
+                        streamToRun = await GetNextExecutorStream(streams).ConfigureAwait(false);
+                        if (streamToRun is null)
+                        {
+                            break;
+                        }
                         continue;
                     }
 
@@ -182,13 +208,35 @@ namespace InteractiveCodeExecution.Hubs
             }
             if (timeoutCt.IsCancellationRequested)
             {
-                yield return new($"Execution was aborted because it went on for too long. Maximum allowed time is {m_tempConfig.Timeout}", "error");
+                yield return new($"Execution was aborted because it went on for too long. Maximum allowed time is {config.Timeout}", "error");
             }
 
             if (sourceErrors.Any())
             {
                 await Clients.Caller.SendAsync("SourceErrors", sourceErrors, Context.ConnectionAborted).ConfigureAwait(false);
             }
+        }
+
+        private async static Task<IExecutorStream?> GetNextExecutorStream(IEnumerator<(bool runInBackground, Func<Task<IExecutorStream?>> stream)> enumerator)
+        {
+            IExecutorStream? nextWaitingStream = null;
+            do
+            {
+                var currentStream = enumerator.Current;
+                if (currentStream.runInBackground)
+                {
+                    _ = enumerator.Current.stream.Invoke();
+                    if (!enumerator.MoveNext())
+                    {
+                        break;
+                    }
+                    continue;
+                }
+
+                nextWaitingStream = await currentStream.stream.Invoke().ConfigureAwait(false);
+            } while (nextWaitingStream is null);
+
+            return nextWaitingStream;
         }
 
         [MessagePackObject]

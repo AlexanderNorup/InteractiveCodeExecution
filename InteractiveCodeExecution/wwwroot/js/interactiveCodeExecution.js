@@ -1,12 +1,6 @@
 ﻿"use strict";
 const logList = document.getElementById("log");
-
-// Temp:
-const userIdInput = document.getElementById("uniqueUserIdInput");
-const execInput = document.getElementById("execInput");
-const backgroundInput = document.getElementById("backgroundInput");
-const buildInput = document.getElementById("buildInput");
-const payloadTypeSelector = document.getElementById("payloadTypeSelector");
+const debugOutputEnabledChk = document.getElementById('debugOutputEnabled');
 
 const connection = new signalR.HubConnectionBuilder()
     .withUrl("/executorHub")
@@ -27,6 +21,10 @@ function logMessage(message, severity = "information") {
         logEntry.className = "logEntry"
         logEntry.appendChild(timePill);
         logEntry.appendChild(text);
+        if (severity === "debug") {
+            logEntry.classList.add("debug");
+        }
+
         logList.appendChild(logEntry);
 
         logList.parentElement.scrollTo({
@@ -36,6 +34,16 @@ function logMessage(message, severity = "information") {
         });
     }
 }
+
+function checkDebugLogging() {
+    if (debugOutputEnabledChk.checked) {
+        logList.classList.add("showDebug");
+    } else {
+        logList.classList.remove("showDebug");
+    }
+}
+
+debugOutputEnabledChk.addEventListener("click", checkDebugLogging);
 
 function abortStreaming() {
     if (stopAllStreaming != undefined) {
@@ -49,12 +57,10 @@ function abortStreaming() {
     }
 }
 
-function startCodeExecution(files, onExecutionFinished) {
+function startCodeExecution(assignmentId, files, buildOnly, onExecutionFinished) {
     let payload = {
-        PayloadType: payloadTypeSelector.value,
-        ExecCmd: execInput.value,
-        BuildCmd: buildInput.value,
-        BackgroundCmd: backgroundInput.value,
+        AssignmentId: assignmentId,
+        BuildOnly: buildOnly,
         Files: []
     };
 
@@ -110,6 +116,7 @@ function registerSourceErrorHandler(handler) {
 
 connection.start().then(function () {
     runBtn.disabled = false;
+    checkDebugLogging();
     logMessage("Connected to backend with SignalR");
 }).catch(function (err) {
     logMessage(err.toString(), "error");

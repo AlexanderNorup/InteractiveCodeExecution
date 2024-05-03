@@ -1,6 +1,6 @@
 ﻿@page
 @using Microsoft.Extensions.Options
-@inject IOptions<InteractiveCodeExecution.Services.DockerConfiguration> dockerConfig
+@inject InteractiveCodeExecution.ExecutorEntities.IExecutorAssignmentProvider assignmentProvider
 @model IndexModel
 @{
     ViewData["Title"] = "Home page";
@@ -11,6 +11,23 @@
     <div class="col">
         <h1 class="display-4">Welcome to the Interactive Code Execution</h1>
         <p>By <b>Alexander Nørup</b>, <a href="mailto:alnoe20@student.sdu.dk">alnoe20@student.sdu.dk</a></p>
+
+        <div class="col-6 m-auto d-flex align-items-center justify-content-center">
+        <div class="mb-3 text-start">
+            <label for="assignmentSelector" class="form-label">Select assignment:</label>
+            <select class="form-select" id="assignmentSelector">
+                @* 
+                    This can also be fetched through the "/api/assignments/" endpoint. But since we render this page in ASP NetCore as well
+                    we save ourselves a fetch() call currently. 
+                *@
+                @foreach (var assignment in assignmentProvider.GetAllAssignments())
+                {
+                    <option value="@assignment.AssignmentId">@assignment.AssignmentName</option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-primary m-4" id="startAssignmentBtn">Start assignment</button>
+        </div>
     </div>
 </div>
 <hr />
@@ -36,6 +53,11 @@
             <a id="startStreamingButton" title="Open livestream">
                 <span class="material-symbols-outlined">
                     desktop_windows
+                </span>
+            </a>
+            <a id="buildBtn" title="Build">
+                <span class="material-symbols-outlined">
+                    construction
                 </span>
             </a>
             <a id="runBtn" title="Run">
@@ -68,6 +90,12 @@
 <!-- Log -->
 <div class="row g-0 codeEditorFooter d-flex flex-row">
     <div class="col-sm-2 flex-grow-0 flex-shrink-0">
+        <div class="form-check m-2">
+            <input class="form-check-input" type="checkbox" value="" id="debugOutputEnabled" checked>
+            <label class="form-check-label" for="debugOutputEnabled">
+                Show Debug output
+            </label>
+        </div>
     </div>
     <div class="col-sm-10 flex-grow-0 flex-shrink-0 logContainer">
         <ul class="list-unstyled" id="log"></ul>
@@ -84,54 +112,6 @@
          </div>
     </div>
 </div>
-
-<!-- Temporary configuration -->
-<div class="row mt-4">
-    <div class="col">
-        <div class="accordion" id="configAccordion">
-        <div class="accordion-item">
-            <h2 class="accordion-header">
-                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfig" aria-expanded="false" aria-controls="collapseOne">
-                    Configuration
-                </button>
-            </h2>
-                <div id="collapseConfig" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
-                <div class="accordion-body">
-                    <h4>This config panel is temporary! All these values will be automatically set behind the scenes at some point.</h4>
-                    <div class="mb-3">
-                        <label for="uniqueUserIdInput" class="form-label">Enter a unique user-id</label>
-                        <input type="text" class="form-control" id="uniqueUserIdInput" aria-describedby="uuidHelp" value="@(Guid.NewGuid().ToString())">
-                        <div id="uuidHelp" class="form-text">The field has been pre-populated by a random string you can use.</div>
-                    </div>
-
-                        <div class="mb-3">
-                            <label for="payloadTypeSelector" class="form-label">Select code type</label>
-                            <select class="form-select" id="payloadTypeSelector">
-                                @foreach (var (name, image) in dockerConfig.Value.PayloadImageTypeMapping)
-                                {
-                                    <option value="@name">@name (@image)</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="execInput" class="form-label">Exec command:</label>
-                            <input type="text" class="form-control" id="execInput" placeholder="dotnet run" value="dotnet run --project Project.csproj">
-                        </div>
-                        <div class="mb-3">
-                            <label for="buildInput" class="form-label">Build command:</label>
-                            <input type="text" class="form-control" id="buildInput" placeholder="dotnet build ..." value="">
-                        </div>
-                        <div class="mb-3">
-                            <label for="buildInput" class="form-label">Background command:</label>
-                            <input type="text" class="form-control" id="backgroundInput" placeholder="bash /startup.sh" value="">
-                        </div>
-                </div>
-            </div>
-        </div>
-    </div>
- </div>
-
-
 
 
 @section Styles {

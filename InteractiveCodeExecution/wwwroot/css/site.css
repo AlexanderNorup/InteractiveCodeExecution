@@ -73,6 +73,14 @@ body {
     max-height: var(--codeEditorFooterHeight);
 }
 
+.debug {
+    display: none;
+}
+
+.showDebug .debug {
+    display: block;
+}
+
 .editorFileListContainer {
     background: var(--codeEditorBg);
     border-right: 1px solid #aaa;
@@ -100,14 +108,14 @@ body {
             color: #000000;
         }
 
-    .fileList li.active {
-        background: #eee;
-    }
+        .fileList li.active {
+            background: #eee;
+        }
 
-.fileList li:hover {
-    background: #ddd;
-}
-/* LEGACY */
+        .fileList li:hover {
+            background: #ddd;
+        }
+
 .logEntry {
     margin-bottom: 0.25rem;
     border-bottom: 1px solid #aaa;

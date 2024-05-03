@@ -34,8 +34,14 @@ namespace InteractiveCodeExecution.Services
             m_doesSupportStorageQouta = new Lazy<Task<bool>>(() => StorgeQoutaIsSupportedAsync());
         }
 
-        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
+        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorAssignment assignment, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(assignment.AssignmentId)
+                || string.IsNullOrWhiteSpace(assignment.Image))
+            {
+                throw new Exception("Improper setup of assignments. AssignmentId or Image is invalid");
+            }
+
             // Before getting a container, check if the payload exceeds the maximum allowed
             if (config.MaxPayloadSizeInBytes > 0)
             {
@@ -46,7 +52,7 @@ namespace InteractiveCodeExecution.Services
                 }
             }
 
-            var container = await GetAvailableContainer(payload, config, userId, cancellationToken);
+            var container = await GetAvailableContainer(assignment.Image, config, userId, cancellationToken);
             m_containers.Add(container);
 
             m_logger.LogDebug("Container {Container} ready for loading files!", container.Id);
@@ -62,67 +68,46 @@ namespace InteractiveCodeExecution.Services
 
             // Setup handle
             handle.Container = container;
-            handle.ShouldBuild = !string.IsNullOrWhiteSpace(payload.BuildCmd);
-            handle.BuildStream = async () =>
+            handle.HasBuildSteps = assignment.Commands.Any(x => x.Stage == ExecutorCommand.ExecutorStage.Build);
+
+            foreach (var cmd in assignment.Commands)
             {
-                m_logger.LogDebug("Building payload for container {Container} with command {BuildCommand}!", container.Id, payload.BuildCmd);
-                if (string.IsNullOrWhiteSpace(payload.BuildCmd))
+                if (payload.BuildOnly && cmd.Stage == ExecutorCommand.ExecutorStage.Exec)
                 {
-                    throw new InvalidOperationException("This payload does not need to be built");
+                    continue;
                 }
-
-                var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    Tty = false,
-                    Cmd = payload.BuildCmd.Split(' '),
-                }, cancellationToken).ConfigureAwait(false);
-
-                var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
-
-                var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                return new DockerStream(buildStream, ExecutionResult.ExecutionStage.Build, resultAction);
-            };
-
-            handle.ExecutorStream = async () =>
-            {
-                m_logger.LogDebug("Executing payload for container {Container} with command {ExecutorCommand}!", container.Id, payload.ExecCmd);
-                if (string.IsNullOrWhiteSpace(payload.ExecCmd))
-                {
-                    throw new ArgumentNullException("The payload executing command is null!");
-                }
-
-                var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    AttachStdin = true,
-                    Tty = false,
-                    Cmd = payload.ExecCmd.Split(' '),
-                }, cancellationToken).ConfigureAwait(false);
-
-                var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
-
-                var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                return new DockerStream(execStream, ExecutionResult.ExecutionStage.Run, resultAction);
-            };
-
-            if (!string.IsNullOrWhiteSpace(payload.BackgroundCmd))
-            {
-                handle.BackgroundStream = async () =>
-                {
-                    var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
+                handle.ExecutorStreams.Add(
+                    (!cmd.WaitForExit,
+                    async () =>
                     {
-                        AttachStderr = false,
-                        AttachStdout = false,
-                        AttachStdin = false,
-                        Tty = false,
-                        Cmd = payload.BackgroundCmd.Split(' '),
-                    }, cancellationToken).ConfigureAwait(false);
+                        m_logger.LogDebug("Executing payload for container {Container} with command {Command} (RunInBackground={RunInBackGround})!", container.Id, cmd.Command, cmd.WaitForExit);
+                        if (string.IsNullOrWhiteSpace(cmd.Command))
+                        {
+                            throw new ArgumentNullException("The payload executing command is null!");
+                        }
 
-                    await m_client.Exec.StartContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                };
+                        var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
+                        {
+                            AttachStderr = cmd.WaitForExit,
+                            AttachStdout = cmd.WaitForExit,
+                            AttachStdin = cmd.WaitForExit,
+                            Tty = false,
+                            Cmd = cmd.Command.Split(' '),
+                        }, cancellationToken).ConfigureAwait(false);
+
+                        if (!cmd.WaitForExit)
+                        {
+                            await m_client.Exec.StartContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                            // Don't wait for exit, so we don't attach to the container
+                            return null;
+                        }
+
+                        var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
+
+                        var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                        return new DockerStream(execStream, cmd.Stage, resultAction);
+                    }
+                ));
             }
 
             return handle;
@@ -163,16 +148,8 @@ namespace InteractiveCodeExecution.Services
             return await Task.FromResult(new List<ExecutorContainer>(m_containers));
         }
 
-        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
+        private async Task<ExecutorContainer> GetAvailableContainer(string image, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
-            // TODO: Either return a cached container, or rename the method
-            _ = payload.PayloadType ?? throw new ArgumentNullException(nameof(payload.PayloadType));
-
-            if (!m_config.PayloadImageTypeMapping.TryGetValue(payload.PayloadType, out var image))
-            {
-                throw new ArgumentException($"Unknown {payload.PayloadType} type!");
-            }
-
             const string ContainerPayloadPath = "/payload";
 
             var startParams = new CreateContainerParameters()
@@ -261,6 +238,10 @@ namespace InteractiveCodeExecution.Services
         private long CalculatePayloadSizeInBytes(ExecutorPayload payload)
         {
             long totalSize = 0;
+            if (payload.Files is null || !payload.Files.Any())
+            {
+                return totalSize;
+            }
 
             foreach (var file in payload.Files)
             {
@@ -276,6 +257,10 @@ namespace InteractiveCodeExecution.Services
 
         private async Task UploadPayloadToContainerAsync(ExecutorPayload payload, ExecutorContainer container, CancellationToken cancellationToken = default)
         {
+            if (payload.Files is null || !payload.Files.Any())
+            {
+                return;
+            }
             using (var tarBall = new MemoryStream())
             {
                 var tarWriter = new TarWriter(tarBall);
