@@ -1,0 +1,3 @@
+[submodule "MarcusW.VncClient"]
+	path = MarcusW.VncClient
+	url = https://github.com/AlexanderNorup/MarcusW.VncClient.git

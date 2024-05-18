@@ -1,78 +1,139 @@
 ﻿@page
 @using Microsoft.Extensions.Options
-@inject IOptions<InteractiveCodeExecution.Services.DockerConfiguration> dockerConfig
+@inject InteractiveCodeExecution.ExecutorEntities.IExecutorAssignmentProvider assignmentProvider
 @model IndexModel
 @{
     ViewData["Title"] = "Home page";
+    ViewData["MonacoVersion"] = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" ? "dev" : "min";
 }
 
 <div class="row text-center">
     <div class="col">
-    <h1 class="display-4">Welcome to the Interactive Code Execution PoC</h1>
-    <p>By <b>Alexander Nørup</b>, <a href="mailto:alnoe20@student.sdu.dk">alnoe20@student.sdu.dk</a></p>
+        <h1 class="display-4">Welcome to the Interactive Code Execution</h1>
+        <p>By <b>Alexander Nørup</b>, <a href="mailto:alnoe20@student.sdu.dk">alnoe20@student.sdu.dk</a></p>
+
+        <div class="col-6 m-auto d-flex align-items-center justify-content-center">
+        <div class="mb-3 text-start">
+            <label for="assignmentSelector" class="form-label">Select assignment:</label>
+            <select class="form-select" id="assignmentSelector">
+                @* 
+                    This can also be fetched through the "/api/assignments/" endpoint. But since we render this page in ASP NetCore as well
+                    we save ourselves a fetch() call currently. 
+                *@
+                @foreach (var assignment in assignmentProvider.GetAllAssignments())
+                {
+                    <option value="@assignment.AssignmentId">@assignment.AssignmentName</option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-primary m-4" id="startAssignmentBtn">Start assignment</button>
+        </div>
     </div>
 </div>
 <hr />
 
-<div class="row">
-    <div class="col-6">
-        <h2>Controls</h2>
-        
-        <div class="mb-3">
-            <label for="payloadTypeSelector" class="form-label">Select code type</label>
-            <select class="form-select" id="payloadTypeSelector">
-                @foreach(var (name, image) in dockerConfig.Value.PayloadImageTypeMapping){
-                    <option value="@name">@name (@image)</option>
-                }
-            </select>
+<!-- Toolbar with buttons to create new files and run -->
+<div class="row g-0">
+    <div class="col-12 codeEditorToolbar">
+        <div>
+            <!-- File buttons -->
+            <a id="newFileBtn" title="New file">
+                <span class="material-symbols-outlined">
+                    note_add
+                </span>
+            </a>
+            <a id="uploadFileBtn" title="Upload file">
+                <span class="material-symbols-outlined">
+                    upload_file
+                </span>
+            </a>
         </div>
-        <div class="mb-3">
-            <label for="codeInput" class="form-label"><code>Program.cs</code></label>
-            <textarea class="form-control font-monospace" id="codeInput" rows="5" placeholder="print('Hello World');">Console.WriteLine("Hello World");</textarea>
-        </div>
-        <div class="mb-3">
-            <label for="codeInput2" class="form-label"><code>Project.csproj</code></label>
-            <textarea class="form-control font-monospace" id="codeInput2" rows="10">
-&lt;Project Sdk=&quot;Microsoft.NET.Sdk&quot;&gt;
-  &lt;PropertyGroup&gt;
-    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
-    &lt;TargetFramework&gt;net8.0&lt;/TargetFramework&gt;
-    &lt;Nullable&gt;enable&lt;/Nullable&gt;
-    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
-  &lt;/PropertyGroup&gt;
-&lt;/Project&gt;</textarea>
-        </div>
-        <div class="mb-3">
-            <label for="execInput" class="form-label">Exec command:</label>
-            <input type="text" class="form-control" id="execInput" placeholder="dotnet run" value="dotnet run --project Project.csproj">
-        </div>
-        <div class="mb-3">
-            <label for="buildInput" class="form-label">Build command:</label>
-            <input type="text" class="form-control" id="buildInput" placeholder="dotnet build ..." value="">
-        </div>
-        <div class="mb-3">
-            <button class="btn btn-success me-2" type="button" id="runBtn" disabled>Run!</button>
-            <button class="btn btn-danger" disabled="true" type="button" id="abortStreamingBtn" disabled>Abort!</button>
-        </div>
-
-    </div>
-    <div class="col-6">
-        <div id="canvasContainer" class="d-none">
-            <canvas id="streamCanvas" width="854" height="480" />
-        </div>
-
-        <div class="d-flex justify-content-between">
-            <h2>Log</h2>
-            <button class="btn btn-sm btn-primary" id="startStreamingButton">Watch screen</button>
-            <button class="btn btn-sm btn-danger" id="clearLogsBtn">Clear Logs</button>
-        </div>
-        <div style="max-height: 70vh; overflow-y: auto;">
-            <ul class="list-unstyled" id="log"></ul>
+        <div>
+            <!-- Run -->
+            <a id="startStreamingButton" title="Open livestream">
+                <span class="material-symbols-outlined">
+                    desktop_windows
+                </span>
+            </a>
+            <a id="buildBtn" title="Build">
+                <span class="material-symbols-outlined">
+                    construction
+                </span>
+            </a>
+            <a id="runBtn" title="Run">
+                <span class="material-symbols-outlined">
+                    play_arrow
+                </span>
+            </a>
+            <a id="abortBtn" class="d-none" title="Stop">
+                <span class="material-symbols-outlined">
+                    stop
+                </span>
+            </a>
         </div>
     </div>
 </div>
 
+<!-- Code editor -->
+<div class="row g-0" id="editorContainer">
+    <div class="col-sm-2 editorFileListContainer">
+        <h4 class="ps-1">Files</h4>
+        <ul class="fileList" id="fileList">
+        </ul>
+    </div>
+    <div class="col-sm-10">
+        <div id="editor" class="codeEditor">
+        </div>
+    </div>
+</div>
 
-<script src="~/js/signalr/dist/browser/signalr.js"></script>
-<script src="~/js/interactiveCodeExecution.js"></script>
-<script src="~/js/vncController.js"></script>
+<!-- Log -->
+<div class="row g-0 codeEditorFooter d-flex flex-row">
+    <div class="col-sm-2 flex-grow-0 flex-shrink-0">
+        <div class="form-check m-2">
+            <input class="form-check-input" type="checkbox" value="" id="debugOutputEnabled" checked>
+            <label class="form-check-label" for="debugOutputEnabled">
+                Show Debug output
+            </label>
+        </div>
+
+        <button class="btn btn-danger m-2" id="submitCodeBtn">Submit assignment</button>
+    </div>
+    <div class="col-sm-10 flex-grow-0 flex-shrink-0 logContainer">
+        <ul class="list-unstyled" id="log"></ul>
+    </div>
+</div>
+
+<!-- Temporary screen -->
+<div class="container">
+    <div class="row mt-4"> 
+        <div class="col">
+            <div id="canvasContainer" class="d-flex d-none streamCanvasContainer flex-column" tabindex="1">
+                <canvas class="streamCanvas" id="streamCanvas" width="854" height="480" />
+            </div>
+         </div>
+    </div>
+</div>
+
+
+@section Styles {
+    <link rel="stylesheet" type="text/css" data-name="vs/editor/editor.main" href="js/monaco-editor/@(ViewData["MonacoVersion"])/vs/editor/editor.main.css">
+}
+
+@section Scripts {
+
+    <!-- SignalR MUST be loaded before the Monaco editor-->
+    <!-- SignalR -->
+    <script src="~/js/signalr/dist/browser/signalr.js"></script>
+    <script src="~/js/signalr/dist/browser/signalr-protocol-msgpack.min.js"></script>
+
+    <!-- Monaco Editor -->
+    <script type="text/javascript" src="~/js/monaco-editor/@(ViewData["MonacoVersion"])/vs/loader.js"></script>
+    <script>require.config({ paths: { vs: '/js/monaco-editor/@(ViewData["MonacoVersion"])/vs' } });</script>
+    
+    <!-- Custom user Scripts-->
+    <script type="text/javascript" src="~/js/EditorFile.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="~/js/codeEdtior.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="~/js/interactiveCodeExecution.js" asp-append-version="true"></script>
+    <script type="text/javascript" src="~/js/vncController.js" asp-append-version="true"></script>
+}

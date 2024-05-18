@@ -2,8 +2,10 @@
 using Docker.DotNet.Models;
 using InteractiveCodeExecution.ExecutorEntities;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Formats.Tar;
+using System.Reflection.Metadata;
 using System.Text;
 
 namespace InteractiveCodeExecution.Services
@@ -16,6 +18,7 @@ namespace InteractiveCodeExecution.Services
         private VNCHelper m_vncClient;
 
         private List<ExecutorContainer> m_containers = new();
+        private readonly ConcurrentBag<int> m_vncHostPortPool;
 
         private Lazy<Task<bool>> m_doesSupportStorageQouta;
 
@@ -26,23 +29,31 @@ namespace InteractiveCodeExecution.Services
             m_config = options.Value;
             m_logger = logger;
 
+            m_vncHostPortPool = new(m_config.AvailableVncPortNumbers);
+
             // This method will always return the same infrastructure for a given runtime, so we can cache the value of this method using a shared task.
             m_doesSupportStorageQouta = new Lazy<Task<bool>>(() => StorgeQoutaIsSupportedAsync());
         }
 
-        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
+        public async Task<ExecutorHandle> GetExecutorHandle(ExecutorPayload payload, ExecutorAssignment assignment, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(assignment.AssignmentId)
+                || string.IsNullOrWhiteSpace(assignment.Image))
+            {
+                throw new Exception("Improper setup of assignments. AssignmentId or Image is invalid");
+            }
+
             // Before getting a container, check if the payload exceeds the maximum allowed
             if (config.MaxPayloadSizeInBytes > 0)
             {
-                long numBytes = CalculatePayloadSizeInBytes(payload);
+                long numBytes = PayloadUtils.CalculatePayloadSizeInBytes(payload);
                 if (numBytes > config.MaxPayloadSizeInBytes)
                 {
                     throw new ExecutorPayloadTooBigException(config.MaxPayloadSizeInBytes.Value, numBytes);
                 }
             }
 
-            var container = await GetAvailableContainer(payload, config, userId, cancellationToken);
+            var container = await GetAvailableContainer(assignment.Image, config, userId, cancellationToken);
             m_containers.Add(container);
 
             m_logger.LogDebug("Container {Container} ready for loading files!", container.Id);
@@ -58,51 +69,47 @@ namespace InteractiveCodeExecution.Services
 
             // Setup handle
             handle.Container = container;
-            handle.ShouldBuild = !string.IsNullOrWhiteSpace(payload.BuildCmd);
-            handle.BuildStream = async () =>
+            handle.HasBuildSteps = assignment.Commands.Any(x => x.Stage == ExecutorCommand.ExecutorStage.Build);
+
+            foreach (var cmd in assignment.Commands)
             {
-                m_logger.LogDebug("Building payload for container {Container} with command {BuildCommand}!", container.Id, payload.BuildCmd);
-                if (string.IsNullOrWhiteSpace(payload.BuildCmd))
+                if (payload.BuildOnly && cmd.Stage == ExecutorCommand.ExecutorStage.Exec)
                 {
-                    throw new InvalidOperationException("This payload does not need to be built");
+                    continue;
                 }
+                handle.ExecutorStreams.Add(
+                    (!cmd.WaitForExit,
+                    async () =>
+                    {
+                        m_logger.LogDebug("Executing payload for container {Container} with command {Command} (RunInBackground={RunInBackGround})!", container.Id, cmd.Command, cmd.WaitForExit);
+                        if (string.IsNullOrWhiteSpace(cmd.Command))
+                        {
+                            throw new ArgumentNullException("The payload executing command is null!");
+                        }
 
-                var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    Tty = false,
-                    Cmd = payload.BuildCmd.Split(' '),
-                }, cancellationToken).ConfigureAwait(false);
+                        var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
+                        {
+                            AttachStderr = cmd.WaitForExit,
+                            AttachStdout = cmd.WaitForExit,
+                            AttachStdin = cmd.WaitForExit,
+                            Tty = false,
+                            Cmd = cmd.Command.Split(' '),
+                        }, cancellationToken).ConfigureAwait(false);
 
-                var buildStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
+                        if (!cmd.WaitForExit)
+                        {
+                            await m_client.Exec.StartContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                            // Don't wait for exit, so we don't attach to the container
+                            return null;
+                        }
 
-                var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                return new DockerStream(buildStream, ExecutionResult.ExecutionStage.Build, resultAction);
-            };
+                        var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
 
-            handle.ExecutorStream = async () =>
-            {
-                m_logger.LogDebug("Executing payload for container {Container} with command {ExecutorCommand}!", container.Id, payload.ExecCmd);
-                if (string.IsNullOrWhiteSpace(payload.ExecCmd))
-                {
-                    throw new ArgumentNullException("The payload executing command is null!");
-                }
-
-                var execContainer = await m_client.Exec.ExecCreateContainerAsync(container.Id, new()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    AttachStdin = true,
-                    Tty = false,
-                    Cmd = payload.ExecCmd.Split(' '),
-                }, cancellationToken).ConfigureAwait(false);
-
-                var execStream = await m_client.Exec.StartAndAttachContainerExecAsync(execContainer.ID, tty: false, cancellationToken).ConfigureAwait(false);
-
-                var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
-                return new DockerStream(execStream, ExecutionResult.ExecutionStage.Run, resultAction);
-            };
+                        var resultAction = async () => await m_client.Exec.InspectContainerExecAsync(execContainer.ID, cancellationToken).ConfigureAwait(false);
+                        return new DockerStream(execStream, cmd.Stage, resultAction);
+                    }
+                ));
+            }
 
             return handle;
         }
@@ -120,6 +127,7 @@ namespace InteractiveCodeExecution.Services
                 {
                     // Don't care
                 }
+                m_vncHostPortPool.Add(payload.Container.ContainerStreamPort.Value);
             }
 
             try
@@ -141,18 +149,14 @@ namespace InteractiveCodeExecution.Services
             return await Task.FromResult(new List<ExecutorContainer>(m_containers));
         }
 
-        private async Task<ExecutorContainer> GetAvailableContainer(ExecutorPayload payload, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
+        private async Task<ExecutorContainer> GetAvailableContainer(string image, ExecutorConfig config, string userId, CancellationToken cancellationToken = default)
         {
-            // TODO: Either return a cached container, or rename the method
-            _ = payload.PayloadType ?? throw new ArgumentNullException(nameof(payload.PayloadType));
-
-            if (!m_config.PayloadImageTypeMapping.TryGetValue(payload.PayloadType, out var image))
+            if (!await EnsureLocalImagePresent(image))
             {
-                throw new ArgumentException($"Unknown {payload.PayloadType} type!");
+                throw new Exception($"Cannot find image '{image}'");
             }
 
             const string ContainerPayloadPath = "/payload";
-
             var startParams = new CreateContainerParameters()
             {
                 Image = image,
@@ -197,16 +201,18 @@ namespace InteractiveCodeExecution.Services
             int? hostVncPort = null;
             if (config.HasVncServer)
             {
-                hostVncPort = 5900; // TOOD: Generate this somehow
+                if (!m_vncHostPortPool.TryTake(out var hostPort) || hostPort == default)
+                {
+                    throw new Exception("Failed to reserve host port for screen connection.");
+                }
+                hostVncPort = hostPort;
                 startParams.HostConfig.PortBindings = new Dictionary<string, IList<PortBinding>>()
                 {
                     { VNCHelper.DefaultVncPort.ToString() + "/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = hostVncPort.ToString() } } },
-                    { "80/tcp", new List<PortBinding>(){ new PortBinding() { HostPort = "3000" } } }
                 };
                 startParams.ExposedPorts = new Dictionary<string, EmptyStruct>()
                 {
                     { VNCHelper.DefaultVncPort.ToString() + "/tcp", new() },
-                    { "80/tcp", new() }
                 };
             }
 
@@ -229,52 +235,68 @@ namespace InteractiveCodeExecution.Services
             {
                 Id = container.ID,
                 ContainerPath = ContainerPayloadPath,
-                ContainerOwner = "hej", //Should use `userId` here
+                ContainerOwner = userId,
                 ContainerStreamPort = hostVncPort
             };
         }
 
-        private long CalculatePayloadSizeInBytes(ExecutorPayload payload)
-        {
-            long totalSize = 0;
-
-            foreach (var file in payload.Files)
-            {
-                totalSize += file.ContentType switch
-                {
-                    ExecutorFileType.Base64BinaryFile => (3 * file.Content.Length) / 4, // 3 bytes per 4 characters in base64
-                    _ => (long)Encoding.UTF8.GetMaxByteCount(file.Content.Length),
-                };
-            }
-
-            return totalSize;
-        }
-
         private async Task UploadPayloadToContainerAsync(ExecutorPayload payload, ExecutorContainer container, CancellationToken cancellationToken = default)
         {
+            if (payload.Files is null || !payload.Files.Any())
+            {
+                return;
+            }
             using (var tarBall = new MemoryStream())
             {
-                var tarWriter = new TarWriter(tarBall);
-
-                foreach (var file in payload.Files)
-                {
-                    using var dataStream = new MemoryStream(GetFileContentAsByteArray(file));
-
-                    var tarEntry = new GnuTarEntry(TarEntryType.RegularFile, file.Filepath)
-                    {
-                        DataStream = dataStream
-                    };
-
-                    await tarWriter.WriteEntryAsync(tarEntry, cancellationToken).ConfigureAwait(false);
-                }
-
-                tarBall.Seek(0, SeekOrigin.Begin);
+                await PayloadUtils.WritePayloadToTarball(payload, tarBall, cancellationToken).ConfigureAwait(false);
                 await m_client.Containers.ExtractArchiveToContainerAsync(container.Id, new()
                 {
                     AllowOverwriteDirWithFile = false,
                     Path = container.ContainerPath,
                 }, tarBall, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        private static ConcurrentDictionary<string, bool> s_imageCache = new ConcurrentDictionary<string, bool>();
+        private async Task<bool> EnsureLocalImagePresent(string image, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(image))
+            {
+                return false;
+            }
+
+            if (s_imageCache.TryGetValue(image, out var exists))
+            {
+                return exists;
+            }
+
+            try
+            {
+                await m_client.Images.InspectImageAsync(image, cancellationToken).ConfigureAwait(false);
+                s_imageCache.TryAdd(image, true);
+                return true;
+            }
+            catch (DockerImageNotFoundException)
+            {
+                m_logger.LogInformation("Could not find image {Image}. Attempting to pull!", image);
+                try
+                {
+                    var progressHandler = new ConsoleProgress(image, m_logger);
+
+                    await m_client.Images.CreateImageAsync(new() { FromImage = image }, new(), progressHandler, cancellationToken);
+
+                    m_logger.LogInformation("Image {Image} successfully pulled!!", image);
+                    s_imageCache.TryAdd(image, true);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    m_logger.LogError(e, "Image {Image} successfully pulled!!", image);
+                    s_imageCache.TryAdd(image, false); // We can't find this image
+                    return true;
+                }
+            }
+
         }
 
         private async Task<bool> StorgeQoutaIsSupportedAsync(CancellationToken cancellationToken = default)
@@ -301,11 +323,20 @@ namespace InteractiveCodeExecution.Services
 
             return false;
         }
+    }
 
-        private static byte[] GetFileContentAsByteArray(ExecutorFile file) => file.ContentType switch
+    internal class ConsoleProgress : IProgress<JSONMessage>
+    {
+        public ILogger<DockerController> m_logger;
+        public string m_name;
+        public ConsoleProgress(string imageName, ILogger<DockerController> logger)
         {
-            ExecutorFileType.Base64BinaryFile => Convert.FromBase64String(file.Content),
-            _ => Encoding.UTF8.GetBytes(file.Content),
-        };
+            m_name = imageName ?? throw new ArgumentNullException(nameof(imageName));
+            m_logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+        public void Report(JSONMessage value)
+        {
+            m_logger.LogDebug("Downloading {ImageName}: {Status}!", m_name, value.Status);
+        }
     }
 }

@@ -1,12 +1,18 @@
 ﻿
+using MessagePack;
+
 namespace InteractiveCodeExecution.ExecutorEntities
 {
+    [MessagePackObject]
     public class ExecutorPayload
     {
-        public string PayloadType { get; set; }
-        public List<ExecutorFile> Files { get; set; }
+        [Key("AssignmentId")]
+        public string? AssignmentId { get; set; }
 
-        public string? BuildCmd { get; set; }
-        public string ExecCmd { get; set; }
+        [Key("BuildOnly")]
+        public bool BuildOnly { get; set; }
+
+        [Key("Files")]
+        public List<ExecutorFile>? Files { get; set; }
     }
 }

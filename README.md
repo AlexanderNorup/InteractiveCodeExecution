@@ -1,11 +1,3 @@
-> [!IMPORTANT]  
-> Current development is happening on the `an/with-local-vncclient-build` branch!
-> 
-> Please go there to see progress:
-> https://github.com/AlexanderNorup/InteractiveCodeExecution/tree/an/with-local-vncclient-build
-
-
-
 # Interactive Code Execution
 
 This project contains code relating to my ISA (Individual Student Activity) *"Interactive Code Execution in ScalableTeaching"*. 
@@ -20,7 +12,18 @@ Supervisors:
 
 ## Running the code
 
-As of writing, this is just a PoC. Have the Docker-engine running on your computer, and use of the launch-profiles available in `Properties/launchSettings.json`.
+In order to clone the repository, you must also clone the submodules. This can be done using:
+
+```bash
+git clone --recurse-submodules https://github.com/AlexanderNorup/InteractiveCodeExecution.git
+```
+
+If you have already cloned the repository without the `--recurse-submodules` you can clone the submodules using
+```bash
+git submodule update --init --recursive
+```
+
+To run, have the Docker-engine running on your computer, and use of the launch-profiles available in `Properties/launchSettings.json`.
 
 Good luck :)
 
@@ -28,11 +31,25 @@ Good luck :)
 
 (Probably already outdated. This is a PoC, so it changes all the time)
 
-https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/9ff149ee-2330-4d20-8b7b-181339ef485b
+**Simple demo just running code:**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
+
+**Demo with new GUI and simple feedback**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/0eec83e0-3df8-4105-8d27-45cf84d66a53
+
+You might notice it dosn't remove the errors after I fixed them. As I made this video, I simply just had not fixed that yet.
 
 
-The video shows running dotnet code and taking: `9724.30ms`. 
+**Demo with assignments and submissions**
 
-If I instead set the Exec-command to `dotnet run --project Project.csproj` and then don't use any build-command, the execution time comes down to `5432.30ms`. Still super slow for a "Hello World", but better.
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bf84299e-6b42-4ccb-be9b-2bf0aaf618a6
 
-Another improvement I will experiment with at some point is to re-use containers. But that brings it's own problems and security concerns.
+**VNC Demo with keyboard and mouse events**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb34674a-30ce-42e3-86ae-a8561b162068
+
+**Demo with concurrent independent live-streamed sources:**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/19322a6f-228f-4baf-b45b-44a50f1f3a64

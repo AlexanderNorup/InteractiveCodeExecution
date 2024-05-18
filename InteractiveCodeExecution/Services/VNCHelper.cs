@@ -1,6 +1,7 @@
 ﻿using InteractiveCodeExecution.Services.VncEntities;
 using MarcusW.VncClient;
 using MarcusW.VncClient.Protocol.Implementation.Services.Transports;
+using SkiaSharp;
 using System.Collections.Concurrent;
 using System.Drawing;
 
@@ -52,6 +53,17 @@ namespace InteractiveCodeExecution.Services
             });
         }
 
+        internal bool TryGetConnection(string userId, out VncConnection? connection)
+        {
+            connection = null;
+            if (m_activeConnections.TryGetValue(userId, out var con))
+            {
+                connection = con;
+                return true;
+            }
+            return false;
+        }
+
         internal VncConnection GetConnection(string userId)
         {
             if (!m_activeConnections.TryGetValue(userId, out var con))
@@ -61,7 +73,22 @@ namespace InteractiveCodeExecution.Services
             return con;
         }
 
-        public Bitmap GetScreenshot(string userId)
+        public bool TryGetScreenshot(string userId, out SKBitmap? bitmap)
+        {
+            bitmap = null;
+            if (!TryGetConnection(userId, out var connection)
+                || connection is null)
+            {
+                return false;
+            }
+
+            var vncConnection = GetConnection(userId);
+            EnsureNonDisposedRenderTarget(vncConnection);
+            bitmap = vncConnection.RenderTarget.GetBitmap();
+            return bitmap is not null;
+        }
+
+        public SKBitmap? GetScreenshot(string userId)
         {
             var vncConnection = GetConnection(userId);
             EnsureNonDisposedRenderTarget(vncConnection);

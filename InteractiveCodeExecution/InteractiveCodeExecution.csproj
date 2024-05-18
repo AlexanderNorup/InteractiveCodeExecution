@@ -5,13 +5,27 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MarcusW.VncClient\src\MarcusW.VncClient\MarcusW.VncClient.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="8.0.4" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.19.6" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
-    <PackageReference Include="MarcusW.VncClient" Version="1.0.0-alpha4" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.0-preview.1.24081.2" />
+    <PackageReference Include="Microsoft.Web.LibraryManager.Build" Version="2.1.175" />
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <!--<PackageReference Include="MarcusW.VncClient" Version="1.0.0-alpha4" />-->
+
+    <PackageReference Include="MessagePackAnalyzer" Version="2.5.140">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
 </Project>

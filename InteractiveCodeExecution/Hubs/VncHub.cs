@@ -1,10 +1,12 @@
 ﻿using InteractiveCodeExecution.ExecutorEntities;
 using InteractiveCodeExecution.Services;
+using InteractiveCodeExecution.VncEvents;
 using MarcusW.VncClient;
 using MarcusW.VncClient.Protocol.Implementation.MessageTypes.Outgoing;
 using Microsoft.AspNetCore.SignalR;
-using System.Drawing.Imaging;
+using SkiaSharp;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace InteractiveCodeExecution.Hubs
 {
@@ -18,10 +20,10 @@ namespace InteractiveCodeExecution.Hubs
             m_vncHelper = vncHelper ?? throw new ArgumentNullException(nameof(vncHelper));
             m_executorController = executorController ?? throw new ArgumentNullException(nameof(executorController));
         }
-
-        public async Task StartConnection()
+        private static Dictionary<string, string> s_connectionToUserIdMapping = new(); // TEMPORARY
+        public async Task StartConnection(string userId) //USERID here is temporary!
         {
-            var userId = GetUserId();
+            s_connectionToUserIdMapping.Add(Context.ConnectionId, userId);
             var allContainers = await m_executorController.GetAllManagedContainersAsync();
             var userContainer = allContainers.FirstOrDefault(x => x.ContainerOwner == userId);
 
@@ -46,41 +48,77 @@ namespace InteractiveCodeExecution.Hubs
             }
         }
 
-        public void PerformMouseEvent(int mouseX, int mouseY, bool clickLeft)
+        public void PerformMouseEvent(VncMouseEvent mouseEvent)
         {
-            var connection = m_vncHelper.GetConnection(GetUserId());
-            connection.Connection.EnqueueMessage(new PointerEventMessage(new Position(mouseX, mouseY), clickLeft ? MouseButtons.Left : MouseButtons.None));
+            if (!m_vncHelper.TryGetConnection(GetUserId(), out var connection)
+                || connection is null)
+            {
+                return;
+            }
+
+            var pos = new Position(mouseEvent.MouseX, mouseEvent.MouseY);
+            var buttons = GetMouseButtons(mouseEvent);
+
+            connection.Connection.EnqueueMessage(new PointerEventMessage(pos, buttons));
+        }
+
+        public void PerformKeyboardEvent(VncKeyboardEvent keyboardEvent)
+        {
+            if (!m_vncHelper.TryGetConnection(GetUserId(), out var connection)
+                || connection is null)
+            {
+                return;
+            }
+
+            if (Enum.IsDefined(typeof(KeySymbol), keyboardEvent.UnicodeKey))
+            {
+                connection.Connection.EnqueueMessage(new KeyEventMessage(keyboardEvent.KeyPressed, (KeySymbol)keyboardEvent.UnicodeKey));
+            }
         }
 
         public async Task GetScreenshot()
         {
-            var bitmap = m_vncHelper.GetScreenshot(GetUserId());
+            if (!m_vncHelper.TryGetScreenshot(GetUserId(), out var bitmap)
+                || bitmap is null)
+            {
+                return;
+            }
+
             MemoryStream ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
+            bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Jpeg, 60);
             var base64 = Convert.ToBase64String(ms.ToArray());
+            bitmap.Dispose();
             await Clients.All.SendAsync("ReceiveScreenshot", "data:image/png;base64," + base64);
         }
 
-        public async IAsyncEnumerable<string> StartLivestream([EnumeratorCancellation] CancellationToken cancellationToken)
+        public async IAsyncEnumerable<byte[]> StartLivestream([EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            using MemoryStream ms = new MemoryStream();
             const int Delay = 50;
             string base64;
+            SKBitmap? bitmapReference = null;
             try
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var bitmap = m_vncHelper.GetScreenshot(GetUserId());
+                    if (!m_vncHelper.TryGetScreenshot(GetUserId(), out bitmapReference)
+                        || bitmapReference is null)
+                    {
+                        break;
+                    }
 
-                    MemoryStream ms = new MemoryStream();
-                    bitmap.Save(ms, ImageFormat.Png);
-                    base64 = Convert.ToBase64String(ms.ToArray());
-                    yield return "data:image/png;base64," + base64;
+                    ms.Seek(0, SeekOrigin.Begin);
+                    bitmapReference.Encode(ms, SKEncodedImageFormat.Jpeg, 60);
+                    yield return ms.ToArray();
+                    bitmapReference.Dispose();
                     await Task.Delay(Delay, cancellationToken);
                 }
             }
             finally
             {
                 await m_vncHelper.CloseConnectionAsync(GetUserId());
+                s_connectionToUserIdMapping.Remove(Context.ConnectionId);
+                bitmapReference?.Dispose();
             }
         }
 
@@ -89,16 +127,50 @@ namespace InteractiveCodeExecution.Hubs
             try
             {
                 await m_vncHelper.CloseConnectionAsync(GetUserId());
+
             }
             catch
             {
                 // Don't care   
             }
+            s_connectionToUserIdMapping.Remove(Context.ConnectionId);
         }
 
         private string GetUserId()
         {
-            return "hej"; //TODO: Replace with auth identifier
+            return s_connectionToUserIdMapping[Context.ConnectionId]; //TODO: Replace with auth identifier
+        }
+
+        private MouseButtons GetMouseButtons(VncMouseEvent mouseEvent)
+        {
+            MouseButtons buttons = MouseButtons.None;
+
+            if (mouseEvent.LeftMouse)
+            {
+                buttons |= MouseButtons.Left;
+            }
+
+            if (mouseEvent.RightMouse)
+            {
+                buttons |= MouseButtons.Right;
+            }
+
+            if (mouseEvent.MiddleMouse)
+            {
+                buttons |= MouseButtons.Middle;
+            }
+
+            if (mouseEvent.ScrollDown)
+            {
+                buttons |= MouseButtons.WheelDown;
+            }
+
+            if (mouseEvent.ScrollUp)
+            {
+                buttons |= MouseButtons.WheelUp;
+            }
+
+            return buttons;
         }
     }
 }

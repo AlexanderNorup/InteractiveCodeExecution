@@ -2,12 +2,7 @@
 {
     public class ExecutionResult
     {
-        public ExecutionStage Stage { get; set; }
+        public ExecutorCommand.ExecutorStage Stage { get; set; }
         public long ReturnCode { get; set; }
-
-        public enum ExecutionStage
-        {
-            Build, Run
-        }
     }
 }

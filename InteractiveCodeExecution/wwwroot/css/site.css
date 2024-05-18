@@ -1,24 +1,32 @@
+:root {
+    --codeEditorBg: #dee2e6;
+}
+
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24
+}
+
 html {
-  font-size: 14px;
+    font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+    html {
+        font-size: 16px;
+    }
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
 }
 
 @keyframes fadeIn {
@@ -31,8 +39,109 @@ body {
     }
 }
 
+
+
+.codeEditor {
+    min-height: 60vh;
+    border: 1px solid var(--codeEditorBg);
+}
+
+.codeEditorToolbar {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #aaa;
+    background: var(--codeEditorBg);
+}
+
+    .codeEditorToolbar a {
+        cursor: pointer;
+    }
+
+    .codeEditorToolbar .material-symbols-outlined {
+        font-size: 3rem;
+    }
+
+.codeEditorFooter {
+    --codeEditorFooterHeight: 15vh;
+    height: var(--codeEditorFooterHeight);
+    border-top: 1px solid #aaa;
+    background: var(--codeEditorBg);
+}
+
+.logContainer {
+    overflow: auto;
+    max-height: var(--codeEditorFooterHeight);
+}
+
+.debug {
+    display: none;
+}
+
+.showDebug .debug {
+    display: block;
+}
+
+.editorFileListContainer {
+    background: var(--codeEditorBg);
+    border-right: 1px solid #aaa;
+}
+
+
+.fileList {
+    list-style-type: none;
+    margin: 0;
+    padding-left: 1.2rem
+}
+
+    .fileList li {
+        cursor: pointer;
+        margin-bottom: 0.1rem;
+        transition: background .2s ease;
+        padding-left: .1rem
+    }
+
+        .fileList li:before {
+            font-family: 'Material Symbols Outlined';
+            content: 'draft';
+            vertical-align: text-top;
+            margin: 0 5px 0 -15px;
+            color: #000000;
+        }
+
+        .fileList li.active {
+            background: #eee;
+        }
+
+        .fileList li:hover {
+            background: #ddd;
+        }
+
 .logEntry {
     margin-bottom: 0.25rem;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid #aaa;
     animation: fadeIn .3s, ease-out, forwards;
 }
+
+.streamCanvas {
+    max-width: 100%;
+}
+
+.streamCanvasContainer {
+    text-align: center;
+    padding-top: .5rem;
+}
+
+    .streamCanvasContainer:focus {
+        outline: none;
+    }
+
+    .streamCanvasContainer::before {
+        content: "Keyboard events are being captured!";
+        font-weight: 700;
+        opacity: 0;
+        transition: .5s ease;
+    }
+
+    .streamCanvasContainer:focus::before {
+        opacity: 1;
+    }

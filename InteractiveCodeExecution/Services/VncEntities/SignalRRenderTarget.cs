@@ -1,7 +1,7 @@
 ﻿using MarcusW.VncClient;
 using MarcusW.VncClient.Rendering;
+using SkiaSharp;
 using System.Collections.Immutable;
-using System.Drawing;
 using System.Runtime.InteropServices;
 
 namespace InteractiveCodeExecution.Services.VncEntities
@@ -32,15 +32,24 @@ namespace InteractiveCodeExecution.Services.VncEntities
             return m_buffer;
         }
 
-        public Bitmap GetBitmap()
+        public SKBitmap? GetBitmap()
         {
             _ = m_buffer ?? throw new ObjectDisposedException(nameof(SignalRRenderTarget));
 
-            return new Bitmap(m_buffer.Size.Width,
-                m_buffer.Size.Height,
-                m_buffer.Format.BitsPerPixel / 8 * m_buffer.Size.Width,
-                System.Drawing.Imaging.PixelFormat.Format32bppRgb,
-                m_buffer.Address);
+            var bufferLength = m_buffer.Format.BitsPerPixel * m_buffer.Size.Width * m_buffer.Size.Height;
+            if (bufferLength <= 0)
+            {
+                return null;
+            }
+
+            var sBitmap = new SKBitmap();
+            sBitmap.InstallPixels(new SKImageInfo(m_buffer.Size.Width,
+                                        m_buffer.Size.Height,
+                                        SKColorType.Bgra8888,
+                                        SKAlphaType.Opaque)
+                                    , m_buffer.Address);
+
+            return sBitmap;
         }
 
         public void Dispose()

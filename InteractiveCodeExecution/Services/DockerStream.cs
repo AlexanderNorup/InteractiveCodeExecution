@@ -7,10 +7,10 @@ namespace InteractiveCodeExecution.Services
     public class DockerStream : IExecutorStream
     {
         public MultiplexedStream Stream { get; }
-        private ExecutionResult.ExecutionStage m_stage;
+        private ExecutorCommand.ExecutorStage m_stage;
         private Func<Task<ContainerExecInspectResponse>> m_containerResultResolver;
 
-        public DockerStream(MultiplexedStream stream, ExecutionResult.ExecutionStage executionStage, Func<Task<ContainerExecInspectResponse>> containerResultResolver)
+        public DockerStream(MultiplexedStream stream, ExecutorCommand.ExecutorStage executionStage, Func<Task<ContainerExecInspectResponse>> containerResultResolver)
         {
             Stream = stream;
             m_stage = executionStage;
