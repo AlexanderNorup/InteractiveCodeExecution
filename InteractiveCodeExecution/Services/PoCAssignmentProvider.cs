@@ -75,14 +75,14 @@ namespace InteractiveCodeExecution.Services
             },
             new ExecutorAssignment()
             {
-                AssignmentId = "VNCTest",
-                AssignmentName = "A very cool VNC example",
-                Image = "elestio/docker-desktop-vnc:V1",
+                AssignmentId = "VNC Base",
+                AssignmentName = "The VNC Base-image",
+                Image = "vnc_baseimage", // From the /VncBase.Dockerfile
                 Commands = new List<ExecutorCommand>()
                 {
                     new()
                     {
-                        Command = "bash /startup.sh",
+                        Command = "/run_vnc.sh",
                         Stage = ExecutorCommand.ExecutorStage.Exec,
                         WaitForExit = false
                     },
@@ -104,7 +104,7 @@ namespace InteractiveCodeExecution.Services
                     EnvironmentVariables = new List<string>()
                     {
                         "RESOLUTION=854x480",
-                        "DISPLAY=:1.0"
+                        "DISPLAY=:0"
                     },
                     HasVncServer = true
                 },

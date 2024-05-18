@@ -12,7 +12,9 @@ namespace InteractiveCodeExecution.Services.VncEntities
             await Task.Yield();
             if (typeof(TInput) == typeof(PasswordAuthenticationInput))
             {
-                string password = "No password Needed";
+                // TODO: Set VNC_PASSWORD environment variable to random 8-char string when creating VNC containers
+                // Then fetch that value and set it here. 
+                string password = "12345678";
 
                 return (TInput)Convert.ChangeType(new PasswordAuthenticationInput(password), typeof(TInput));
             }
