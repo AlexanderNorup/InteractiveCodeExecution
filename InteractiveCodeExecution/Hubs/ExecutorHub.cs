@@ -109,12 +109,6 @@ namespace InteractiveCodeExecution.Hubs
                 yield break;
             }
 
-            if (!handle.ExecutorStreams.Any())
-            {
-                yield return new("There are no commands to run.", "error");
-                yield break;
-            }
-
             yield return new("Starting execution!", "debug");
 
             var timeoutCancellationToken = new CancellationTokenSource();
@@ -134,10 +128,16 @@ namespace InteractiveCodeExecution.Hubs
             ISourceErrorParser sourceErrorParser = new CSharpSourceErrorParser(); //TODO: Resolve this and allow for others
             var sourceErrors = new List<ExecutionSourceError>();
 
-            int completedStreamsCount = 0;
-            var streams = handle.ExecutorStreams.GetEnumerator();
             try
             {
+                if (!handle.ExecutorStreams.Any())
+                {
+                    yield return new("There are no commands to run.", "error");
+                    yield break;
+                }
+
+                int completedStreamsCount = 0;
+                var streams = handle.ExecutorStreams.GetEnumerator();
                 streams.MoveNext();
                 var streamToRun = await GetNextExecutorStream(streams).ConfigureAwait(false);
                 if (streamToRun is null)
