@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MarcusW.VncClient\src\MarcusW.VncClient\MarcusW.VncClient.csproj" />
+    <ProjectReference Include="..\MarcusW.VncClient\src\MarcusW.VncClient\MarcusW.VncClient.csproj" />
   </ItemGroup>
 
   <ItemGroup>

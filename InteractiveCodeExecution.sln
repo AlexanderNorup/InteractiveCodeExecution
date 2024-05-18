@@ -5,7 +5,7 @@ VisualStudioVersion = 17.9.34607.119
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InteractiveCodeExecution", "InteractiveCodeExecution\InteractiveCodeExecution.csproj", "{A33E0F20-78B4-4E32-AA9B-1C8261A732B6}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MarcusW.VncClient", "..\MarcusW.VncClient\src\MarcusW.VncClient\MarcusW.VncClient.csproj", "{F8CA14FA-29F4-4CBF-A621-FAC3D6A2B712}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MarcusW.VncClient", "MarcusW.VncClient\src\MarcusW.VncClient\MarcusW.VncClient.csproj", "{BB376046-5DED-4CEF-A9C5-77AEB221CF49}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{A33E0F20-78B4-4E32-AA9B-1C8261A732B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A33E0F20-78B4-4E32-AA9B-1C8261A732B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A33E0F20-78B4-4E32-AA9B-1C8261A732B6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F8CA14FA-29F4-4CBF-A621-FAC3D6A2B712}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F8CA14FA-29F4-4CBF-A621-FAC3D6A2B712}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F8CA14FA-29F4-4CBF-A621-FAC3D6A2B712}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F8CA14FA-29F4-4CBF-A621-FAC3D6A2B712}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB376046-5DED-4CEF-A9C5-77AEB221CF49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB376046-5DED-4CEF-A9C5-77AEB221CF49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB376046-5DED-4CEF-A9C5-77AEB221CF49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB376046-5DED-4CEF-A9C5-77AEB221CF49}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
