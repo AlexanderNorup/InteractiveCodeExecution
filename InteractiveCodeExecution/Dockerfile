@@ -4,6 +4,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 RUN useradd -s /bin/bash -m docker
 WORKDIR /app
 EXPOSE 8080
+RUN apt-get update
+RUN apt-get install -y libfontconfig1 # Required by Skiasharp
 COPY ["docker-entrypoint.sh", "/docker-entrypoint.sh"]
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build

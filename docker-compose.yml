@@ -1,8 +1,8 @@
 services:
   web:
     image: ghcr.io/alexandernorup/interactivecodeexecution:v1
-    ports:
-      - "8080:8080"
+    network_mode: host # TODO: Make an environment variable so it can detect being run in docker, and then properly setup Docker-networks so it itself can reach the containers it spawns. 
+    # If network_mode is fixed, then the port should be exposed again.. It runs on 8080
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
     volumes:

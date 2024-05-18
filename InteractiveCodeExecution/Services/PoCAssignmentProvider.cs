@@ -106,11 +106,15 @@ namespace InteractiveCodeExecution.Services
                         "RESOLUTION=854x480",
                         "DISPLAY=:0"
                     },
+                    MaxMemoryBytes = 1024 * 1024 * 512L,
+                    MaxVCpus = 0.5,
+                    Timeout = TimeSpan.FromMinutes(5),
+                    MaxPayloadSizeInBytes = 300,
                     HasVncServer = true
                 },
-                InitialPayload = new()
+                InitialPayload = new ()
                 {
-                    new()
+                    new ()
                     {
                         Content = "The example is ready. There are no files for this one, so this is a just a placeholder file!",
                         ContentType = ExecutorFileType.Utf8TextFile,
