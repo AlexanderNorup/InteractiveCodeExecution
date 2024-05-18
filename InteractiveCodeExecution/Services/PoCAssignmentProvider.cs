@@ -77,7 +77,7 @@ namespace InteractiveCodeExecution.Services
             {
                 AssignmentId = "VNC Base",
                 AssignmentName = "The VNC Base-image",
-                Image = "vnc_baseimage", // From the /VncBase.Dockerfile
+                Image = "ghcr.io/alexandernorup/interactivecodeexecution/vnc_base_image:v1", // From the /VncBase.Dockerfile
                 Commands = new List<ExecutorCommand>()
                 {
                     new()
