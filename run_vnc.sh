@@ -21,6 +21,7 @@ echo "# starting vncserver processes..."
 DESKTOP_SIZE=${RESOLUTION-"854x480"}
 vncserver -geometry ${DESKTOP_SIZE} :0
 
+sleep 10
 tint2 & # Starts a task-bar application
 
 sleep infinity

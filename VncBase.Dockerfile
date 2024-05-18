@@ -1,5 +1,5 @@
 # BASED ON https://github.com/mnod/docker-tightvnc/
-FROM ubuntu:20.04
+FROM debian:bookworm
 
 RUN echo locales locales/default_environment_locale select en_US.UTF-8 | debconf-set-selections \
 && echo locales locales/locales_to_be_generated select "en_US.UTF-8 UTF-8" | debconf-set-selections \
@@ -13,7 +13,7 @@ RUN echo locales locales/default_environment_locale select en_US.UTF-8 | debconf
     tint2 \
     xfonts-base \
     tightvncserver \
-    firefox \
+    firefox-esr \
     pcmanfm \
     lxterminal \
     meld \
