@@ -1,0 +1,7 @@
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: InteractiveCodeExecution/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development

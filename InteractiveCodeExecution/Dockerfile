@@ -9,6 +9,8 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["InteractiveCodeExecution/InteractiveCodeExecution.csproj", "InteractiveCodeExecution/"]
+COPY ["MarcusW.VncClient/src/Directory.Build.props", "MarcusW.VncClient/src/Directory.Build.props"]
+COPY ["MarcusW.VncClient/src/MarcusW.VncClient/MarcusW.VncClient.csproj", "MarcusW.VncClient/src/MarcusW.VncClient/MarcusW.VncClient.csproj"]
 RUN dotnet restore "./InteractiveCodeExecution/InteractiveCodeExecution.csproj"
 COPY . .
 WORKDIR "/src/InteractiveCodeExecution"
