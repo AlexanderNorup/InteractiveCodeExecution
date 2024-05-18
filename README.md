@@ -12,7 +12,18 @@ Supervisors:
 
 ## Running the code
 
-As of writing, this is just a PoC. Have the Docker-engine running on your computer, and use of the launch-profiles available in `Properties/launchSettings.json`.
+In order to clone the repository, you must also clone the submodules. This can be done using:
+
+```bash
+git clone --recurse-submodules https://github.com/AlexanderNorup/InteractiveCodeExecution.git
+```
+
+If you have already cloned the repository without the `--recurse-submodules` you can clone the submodules using
+```bash
+git submodule update --init --recursive
+```
+
+To run, have the Docker-engine running on your computer, and use of the launch-profiles available in `Properties/launchSettings.json`.
 
 Good luck :)
 
