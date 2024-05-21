@@ -15,6 +15,43 @@ namespace InteractiveCodeExecution.Services
                 {
                     new()
                     {
+                        Command = "dotnet run",
+                        Stage = ExecutorCommand.ExecutorStage.Exec,
+                        WaitForExit = true
+                    }
+                },
+                InitialPayload = new()
+                {
+                    new()
+                    {
+                        Content = "Console.WriteLine(\"Hello World!\");",
+                        ContentType = ExecutorFileType.Utf8TextFile,
+                        Filepath = "Program.cs"
+                    },
+                    new()
+                    {
+                        Content = @"<Project Sdk=""Microsoft.NET.Sdk"">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>",
+                        ContentType = ExecutorFileType.Utf8TextFile,
+                        Filepath = "Project.csproj"
+                    }
+                }
+            },
+            new ExecutorAssignment()
+            {
+                AssignmentId = "CSharpTwoStep",
+                AssignmentName = "Two-step CSharp with dotnet 8",
+                Image = "mcr.microsoft.com/dotnet/sdk:8.0",
+                Commands = new List<ExecutorCommand>()
+                {
+                    new()
+                    {
                         Command = "dotnet build",
                         Stage = ExecutorCommand.ExecutorStage.Build,
                         WaitForExit = true

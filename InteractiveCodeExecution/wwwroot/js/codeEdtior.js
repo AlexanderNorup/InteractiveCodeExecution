@@ -111,6 +111,7 @@ require(['vs/editor/editor.main'], function () {
 
             console.info("Starting new assignment", newAssignmentJson);
             editorFiles = {}; // Clear current editor!
+            monaco.editor.getModels().forEach(model => model.dispose()); // Remove all models
             if (newAssignmentJson.InitialPayload) {
                 for (let initialFile of newAssignmentJson.InitialPayload) {
                     editorFiles[initialFile.Filepath] = new EditorFile(initialFile.Filepath, initialFile.Content);
