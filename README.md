@@ -31,16 +31,20 @@ Good luck :)
 
 (Probably already outdated. This is a PoC, so it changes all the time)
 
-**Simple demo just running code:**
-
-https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
-
 **Demo with new GUI and simple feedback**
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/0eec83e0-3df8-4105-8d27-45cf84d66a53
 
 You might notice it dosn't remove the errors after I fixed them. As I made this video, I simply just had not fixed that yet.
 
+
+**Demo with real world assignment**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/4f919a55-6dab-47e3-9666-93aa74614b5b
+
+This demo runs a real point-giving assignment from the VOP course @ SDU. 
+
+Running inside this container: https://github.com/users/AlexanderNorup/packages/container/package/interactivecodeexecution%2Fvnc_java
 
 **Demo with assignments and submissions**
 
@@ -53,3 +57,7 @@ https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/bb3467
 **Demo with concurrent independent live-streamed sources:**
 
 https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/19322a6f-228f-4baf-b45b-44a50f1f3a64
+
+**Old demo just running code:**
+
+https://github.com/AlexanderNorup/InteractiveCodeExecution/assets/5619812/949122c5-c7ed-428a-bb91-0c209133a354
