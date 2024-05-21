@@ -133,6 +133,7 @@ namespace InteractiveCodeExecution.Services
             try
             {
                 m_containers.RemoveAll(container => container.Id == payload.Container.Id);
+                _ = m_client.Containers.StopContainerAsync(payload.Container.Id, new() { WaitBeforeKillSeconds = 0 });
                 await m_client.Containers.RemoveContainerAsync(payload.Container.Id, new()
                 {
                     Force = true,

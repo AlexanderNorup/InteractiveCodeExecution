@@ -1,5 +1,6 @@
 :root {
     --codeEditorBg: #dee2e6;
+    --codeEditorHeight: 60vh;
 }
 
 .material-symbols-outlined {
@@ -42,7 +43,7 @@ body {
 
 
 .codeEditor {
-    min-height: 60vh;
+    min-height: var(--codeEditorHeight);
     border: 1px solid var(--codeEditorBg);
 }
 
@@ -84,6 +85,8 @@ body {
 .editorFileListContainer {
     background: var(--codeEditorBg);
     border-right: 1px solid #aaa;
+    overflow: auto;
+    max-height: var(--codeEditorHeight);
 }
 
 

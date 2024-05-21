@@ -40,7 +40,7 @@ namespace InteractiveCodeExecution.Hubs
             try
             {
                 await m_vncHelper.Connect(userId, userContainer.ContainerStreamPort.Value, Context.ConnectionAborted);
-                await Clients.Caller.SendAsync("ReceiveMessage", "Livestream ready!");
+                await Clients.Caller.SendAsync("ReceiveMessage", "Preparing livestream...");
             }
             catch (Exception e)
             {
@@ -138,7 +138,13 @@ namespace InteractiveCodeExecution.Hubs
 
         private string GetUserId()
         {
-            return s_connectionToUserIdMapping[Context.ConnectionId]; //TODO: Replace with auth identifier
+            try
+            {
+                return s_connectionToUserIdMapping[Context.ConnectionId]; //TODO: Replace with auth identifier
+            }catch (Exception)
+            {
+                return string.Empty;
+            }
         }
 
         private MouseButtons GetMouseButtons(VncMouseEvent mouseEvent)

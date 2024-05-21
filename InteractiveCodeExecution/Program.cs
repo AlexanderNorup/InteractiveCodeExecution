@@ -23,8 +23,13 @@ namespace InteractiveCodeExecution
                 opts.JsonSerializerOptions.PropertyNamingPolicy = null; // Ensures the JSON objects are named as our fields (like with messagepack)
             });
             builder.Services.AddRazorPages();
-            builder.Services.AddSignalR()
-                 .AddMessagePackProtocol(options =>
+            builder.Services.AddSignalR(options =>
+            {
+#if DEBUG
+                options.EnableDetailedErrors = true;
+#endif
+                options.MaximumReceiveMessageSize = 1024 * 1024 * 10; // 10 MB max-size messages
+            }).AddMessagePackProtocol(options =>
                  {
                      options.SerializerOptions = MessagePackSerializerOptions.Standard
                          .WithSecurity(MessagePackSecurity.UntrustedData);
