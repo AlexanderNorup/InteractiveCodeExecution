@@ -27,6 +27,12 @@ To run, have the Docker-engine running on your computer, and use of the launch-p
 
 Good luck :)
 
+If you experience the build being stuck at "Restore operation started" for the first compile, this is normal. It can take up to 500 seconds. 
+This is due to me trying the `Microsoft.Web.LibraryManager.Build` with `libman.json` instead `npm` directly. 
+If it never finishes manually go to https://microsoft.github.io/monaco-editor/ and download the library and place the `dev`, `min` and `min-maps` folders in `InteractiveCodeExecution/wwwroot/js/monaco-editor`. 
+
+`Microsoft.Web.LibraryManager` seemed smart when I started to use it. I guess you learn something new every day.
+
 ## Demo video
 
 (Probably already outdated. This is a PoC, so it changes all the time)
