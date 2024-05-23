@@ -113,7 +113,7 @@ namespace InteractiveCodeExecution.Services
             new ExecutorAssignment()
             {
                 AssignmentId = "VNC Base",
-                AssignmentName = "The VNC Base-image",
+                AssignmentName = "The VNC Base-image with Firefox",
                 Image = "ghcr.io/alexandernorup/interactivecodeexecution/vnc_base_image:v1", // From the /VncDockerImages/VncBase.Dockerfile
                 Commands = new List<ExecutorCommand>()
                 {
@@ -125,7 +125,10 @@ namespace InteractiveCodeExecution.Services
                     },
                     new()
                     {
-                        Command = "sleep 5",
+                        // Sleep here is required because Firefox expects an X-server to immediately connect to
+                        // Ideally this should be a shell script that waits for an x-server exists at the :0
+                        // But for a PoC this is good enough
+                        Command = "sleep 3",
                         Stage = ExecutorCommand.ExecutorStage.Exec,
                         WaitForExit = true
                     },
@@ -171,12 +174,6 @@ namespace InteractiveCodeExecution.Services
                         Command = "/run_vnc.sh",
                         Stage = ExecutorCommand.ExecutorStage.Exec,
                         WaitForExit = false
-                    },
-                    new()
-                    {
-                        Command = "sleep 4",
-                        Stage = ExecutorCommand.ExecutorStage.Exec,
-                        WaitForExit = true
                     },
                     new()
                     {
